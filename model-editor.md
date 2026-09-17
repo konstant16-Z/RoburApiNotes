@@ -35,6 +35,39 @@ doc.SaveToFileAsXml(path);
 | `PluginCoreOps.CreateModel(parent, type, name)` | Создание новой модели (ЦММ — см. `surface.md`) | `[CODE]` DemLoader/TerrainWriter.cs |
 | `base.TransactionManager` / `BeginUpdate()/EndUpdate()` | Групповое изменение проекта | `[TUT]` |
 
+### Добавление/дублирование/перемещение модели в дереве проекта `[CODE]` (пример от Топоматик; Robur-прогон не выполнялся)
+
+Источник — официальный пример разработки. Три операции через общую систему команд
+(обёртки-хелперы сокращены до сути):
+
+```csharp
+// 1. Новая модель: путь папки — относительно файла проекта («Модели/ЦММ»);
+//    подпапки и имя задаются одним filePath: «папка/подпапка/Имя.расширение»
+var folder = PluginCoreOps.CreateFolder(new[] { "Модели/ЦММ" }).Uri.AsAbsoluteUri;
+var node = ApplicationHost.Current.Plugins.Execute(
+    Consts.FunctionAddItem,
+    new object[] { folder + "/" + "Моя модель" + ".sfcx", "dtm" }) as IProjectModel;
+
+// 2. Дубликат существующей модели (имя команды с опечаткой — «dublicate»)
+var pathId = PluginCoreOps.FindModelPathId(projectModel);
+var duplicate = ApplicationHost.Current.Plugins.Execute(
+    "dublicate", new object[] { pathId }) as IProjectModel;
+
+// 3. Перемещение/переименование: новый относительный путь + имя с расширением
+var moved = ApplicationHost.Current.Plugins.Execute(
+    "mvitem", new object[] { pathId, "Наша новая папка/Дублированная.sfcx" }) as IProjectModel;
+```
+
+- `Consts.FunctionAddItem` — константа имени команды добавления; тип и расширение
+  берутся из примера для ЦММ (`"dtm"`, `".sfcx"`). **Для Rail не подтверждены**:
+  сначала прочитать `ModelType` и расширение существующей ж/д модели
+  (`node.ModelType`, `PluginCoreOps.GetFileName(node)`).
+- Для создания новой пустой Rail-модели путь: `FunctionAddItem` с типом Rail,
+  а не `dublicate` (копирует содержимое) и не `new RailAlignment()`.
+- Активную модель брать штатно: `PlanModelEditor.FindActiveModel(project, out bool ro)`.
+- Изменения дерева — внутри `project.TransactionManager.BeginUpdate()/EndUpdate()`
+  (try/finally); результаты `Execute` проверять на null.
+
 ## Дерево проекта (категории, поиск, обход)
 
 | API | Назначение | Статус |
