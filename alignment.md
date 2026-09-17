@@ -956,6 +956,62 @@ double EndSta, bool FromEdge, TrayCollection)`; свойства соответ�
   раньше давал только счётчики — пары пикет→дистанция терялись, импорт отмечал
   «пары не выгружены экспортёром»).
 
+## Верхнее строение пути (ВСП) — два формата, конвертация sections→таблицы
+
+`[DECOMP]` ilspycmd `Topomatic.Alg.Rail.dll` (16.0.50.7 и 16.0.62.x), `[CODE]`
+экспорт `build_permanent_way*` (RailModelExporter), импорт
+`_write_permanent_way[_sections]`/`_pw_make_scalar_row` (RailModelImporter).
+**Статус: подтверждено** round-trip 16.50-экспорт → импорт в новую Robur →
+повторный экспорт (`Dop/Export_Rail6` → import → `Development/Out/Bin/Export_Rail7`,
+значения побайтово совпали: эпюра 1600 шпал, балласт 0.45/0.37).
+
+### Новая модель (Bin, 16.0.62.x) — таблицы
+
+`PermanentWay` (свойства оси `ProjectPermanentWay`/`ExistingPermanentWay`) —
+коллекции `Rails`/`Fastenings`/`Sleepers` (строки `RailsSection{Station}` +
+параметры `Rail`/`Fastening`/`Sleeper` = типовой элемент по `Caption`),
+`SleepersDistribution` (`SleepersDistributionSection{Station, SleepersCount}`),
+`BallastDepth` (`BallastDepthSection{Station, BallastDepth}`).
+
+### Старая модель (Robur 16.0.50) — поучастковая
+
+- `PermanentWay` = список `PermanentWaySection{Station, EndStation, Rail, Sleeper,
+  Fastening}` — **без** коллекций (определяется `is_old_permanent_way`:
+  `Rails`/`Fastenings`/`Sleepers` = None).
+- Эпюра шпал живёт **вне** PermanentWay: `ReconstructionData.SleepersDistribution`
+  (единственная, проектная) — `SleepersDistributionSection{Station, SleepersCount}`
+  + `LastRule` (enum `RuleType`: `User/CPT_53/SP_119_13330_2017/SP_37_13330_2012`).
+- Толщина балласта: проектная — `RailAlignment.ProjectBallastDepth`;
+  существующая — `ReconstructionData.ExistBallastDepth` (обе —
+  `BallastDepthSection{Station, BallastDepth}`).
+
+### Формат экспорта 16.0.50 (sections)
+
+JSON-блок `{ type, model:"sections", count, items[] }` — в `permanent_way.json`/
+`permanent_way_existing.json`. Экспортёр дописывает в блок коллекции каноном
+табличной модели:
+- проектное ВСП → `SleepersDistribution` (из `ReconstructionData`, + `lastRule`)
+  и `BallastDepth` (из `ProjectBallastDepth`);
+- существующее ВСП → `BallastDepth` (из `ExistBallastDepth`);
+
+каждая `{ type, count, items:[{station, value}] }` (+ `lastRule` у эпюры).
+`build_permanent_way(perm_way, axis, existing)` пробрасывает ось; для новых Robur
+параметр `axis` игнорируется (данные читаются из самого PermanentWay).
+
+### Импорт (в новую Robur)
+
+`sections` → таблицы новой модели:
+- секции → строки `Rails`/`Fastenings`/`Sleepers` по станции (`Clear` + `Add`,
+  строка на секцию; параметры из секционных подблоков `rail/fastening/sleeper`,
+  ключ `caption` строчный);
+- `SleepersDistribution`/`BallastDepth` (доп. блок) → одноимённые таблицы через
+  `_pw_write_extra` (scalar-строки: `SleepersDistributionSection` ctor
+  `(owner, double station)`, `BallastDepthSection` ctor
+  `(owner, double station, double value)`); восстановление
+  `SleepersDistribution.LastRule` из `lastRule` (set_typed_prop, enum целиком);
+- при отсутствии ключей коллекции очищаются (обратная совместимость со старыми
+  экспортами 16.0.50, где эпюры/балласта в JSON не было).
+
 ### Примечания
 
 - Тип элемента таблицы: `element_type_of` ИЛИ индексер `Item[int]` — у пустой
