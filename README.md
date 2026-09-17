@@ -37,6 +37,7 @@
 |---|---|
 | `Development/Out/Bin/Topomatic.*.dll` | Декомпиляции (эталонный SDK в репозитории) |
 | `Runoff`, `DemLoader`, `RoadStyle`, `ModelDesk` (копии `/tmp/opencode/external/`) | Боевые паттерны, минимальная версия Robur **16.0.62.12**; рефлексия SDK 16.0.60.11 (ModelDesk) |
+| `robur-mcp` (`github.com/topomatic-code/robur-mcp`, `tool_bridge/`) | `[CODE]` — плагин 16.0.62.x: водопропускные трубы, твёрдые тела/Brep, расширенный словарь сущностей, блоки, слои, ввод с опциями, дерево проекта |
 | `New_export/src/DxfExport` + `New_export/SPECIFICATION.md` | DWG-сущности, листы, CadColor, запись DXF/DWG через ACadSharp, скриптовый слой (IronPython/PyBridge) |
 | `RailModelExporter` (`PyBridge.cs`, `SCRIPTS-DISCOVERY.md`) | Паттерн C#→IronPython моста, факты по скриптовому движку |
 | `https://help.topomatic.ru/next` (веб-справка: tutorial/reference) | `[TUT]`-паттерны cmd/plugin/cadcursors; пространства имён — **только перечни типов, без членов**; есть опечатки (`GetDouble "в радианах"`, `DrainSideConveter`, «Сторонна») — сигнатуры брать из `asmread`/декомпиляции |
@@ -57,7 +58,9 @@
 | `geometry.md` | Векторы, геометрия, форматирование, рамки |
 | `alignment.md` | Трассы: план, профили, поперечники, параметры, трубы, километраж, вираж/дренаж/лотки (M4), ВСП (два формата: таблицы Bin vs поучастковый 16.50 + эпюра шпал/толщина балласта) |
 | `surface.md` | Поверхности (ЦММ): чтение, правка, создание с нуля |
-| `dwg.md` | Чертёж: сущности, листы, CadColor, матрица вставки, запись DXF/DWG через ACadSharp |
+| `dwg.md` | Чертёж: сущности, листы, CadColor, матрица вставки, блоки, расширенный словарь, слои, штриховки, запись DXF/DWG через ACadSharp |
+| `culverts.md` | Водопропускные трубы: доступ к модели, параметры, спецификации, таблицы, идентификаторы `SheetTableNames` |
+| `solids.md` | Твёрдые тела и Brep: `Shell`/`Face`/`Brep.Tools`, создание, логические операции, трансформации, сечение |
 | `scripting.md` | Скрипты: IronPython (движок, Python-плагины, мост PyBridge, interop) |
 | `sheets.md` | Ведомости и поля шаблонов |
 | `ironpython.md` | Платформа скриптов: IronPython 2.6 в Robur (маршалинг строк, индексаторы, bool, dict, обфускация) |

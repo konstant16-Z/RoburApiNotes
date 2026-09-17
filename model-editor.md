@@ -78,6 +78,36 @@ var moved = ApplicationHost.Current.Plugins.Execute(
 | `PluginCoreOps.GetFileName(node)` | Имя файла модели (null-safe; пустое → «(без имени)») | `[CODE]` Runoff/SurfaceAccess.cs:99 |
 | `node.GetChilds()` → `IProjectModel[]` | Дети узла; **бросает `NullReferenceException`** — всегда `try/catch`, возврат null | `[CODE]` DemLoader/TerrainWriter.cs:89 |
 
+### Обход дерева через `IProjectModel` (`[CODE]` robur-mcp/ProjectManager.cs)
+
+| API | Назначение | Статус |
+|---|---|---|
+| `ApplicationHost.Current.ActiveProject as ModelProject`, `.Model` → `IProjectModel` | Корневая модель активного проекта | `[CODE]` |
+| `model.Uri` → `URI`, `model.Uri.AsAbsoluteUri` → string | Абсолютный URI узла | `[CODE]` |
+| `model.ModelType` → string | Тип узла (строка, см. ниже) | `[CODE]` |
+| `model.GetChilds()` → `IEnumerable<IProjectModel>` | Дети узла | `[CODE]` |
+| `model.Project` → проект; `project.Model` → `IProjectModel` | Проект-владелец модели | `[CODE]` |
+| `project.BeginUpdate()` / `project.EndUpdate()` + `projectModel.Remove(model, false)` | Удалить элемент проекта (в `try/finally`) | `[CODE]` |
+| `ApplicationHost.Current.Plugins.Execute("getname", new object[] { model })` → string | Имя модели/элемента проекта | `[CODE]` |
+
+```csharp
+var appHost = ApplicationHost.Current;
+var project = appHost.ActiveProject as ModelProject;
+var projectModel = project.Model;                       // IProjectModel
+string name = appHost.Plugins.Execute("getname", new object[] { projectModel }) as string;
+foreach (var child in projectModel.GetChilds())         // IProjectModel
+{
+    string type = child.ModelType;                      // "road", "dtm", "culvert", ...
+    string uri  = child.Uri.AsAbsoluteUri;
+}
+```
+
+**Значения `ModelType`, встречающиеся в robur-mcp** (`[CODE]`):
+`folder`, `dtm` (поверхность), `road` (автодорога), `survey` (изыскательская/геологическая
+трасса), `global_glg` (геология), `culvert` (водопропускная труба),
+`application/dwg` (чертёж), `application/culvert-dwl` (динамический чертёж трубы).
+Проверять тип лучше по строке, а не приводить к типу без проверки.
+
 ## Отображение в инспекторе
 
 | API | Назначение | Статус |

@@ -25,6 +25,23 @@
 
 ⚠️ **У `GetPoint` есть обе сигнатуры** — проверяйте, какую вызываете (см. `pitfalls.md`).
 
+Вариант с **опциями** (`[CODE]` robur-mcp/CadViewTools.cs) — третьим аргументом
+передаётся массив подписей; результат `UserCmd` означает выбор опции, сама опция —
+в `cadView.LastUserCmd`:
+
+```csharp
+var options = positions.Count >= 2 ? new[] { "Замкнуть контур", "Завершить ввод" } : new string[0];
+var result = CadCursors.GetPoint(cadView, out var pos, message, options);
+switch (result)
+{
+    case GetPointResult.Accept: positions.Add(pos.Pos); break;
+    case GetPointResult.UserCmd:
+        if (cadView.LastUserCmd == "Замкнуть контур") { /* ... */ }
+        break;
+    default: /* Cancel */ break;
+}
+```
+
 ## Выбор объектов (SelectionSet)
 
 | API | Назначение | Статус |
@@ -51,4 +68,6 @@
 | `cadView.DynamicDraw += DrawCursorEvent` | Подписка на отрисовку; **отписка в `finally`** | `[TUT]` |
 | `DrawCursorEvent` — делегат `(CadPen pen, Vector3D vertex)` | Сигнатура события | `[TUT]` |
 | `CadPen.BeginDraw()/EndDraw()/DrawLine(...)` | Рисование между Begin/EndDraw | `[TUT]` |
+| `CadPen.DrawArray(positions, ArrayMode.Polyline)` | Нарисовать контур по точкам (`positions` — `IEnumerable<Vector2D>`; `[CODE]` robur-mcp/CadViewTools.cs) | `[CODE]` |
+| `new BoundingBox2D(min, max)` + `cadView.ZoomBound(bounds, true)` | Зум на прямоугольную область | `[CODE]` |
 | `PaintEntityEventArgs.PaintEntity(entity, pen)` | Отрисовка Dwg-примитива в DynamicDraw | `[TUT]` |

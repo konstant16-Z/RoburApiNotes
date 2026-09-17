@@ -104,6 +104,18 @@ System.Numerics.Matrix4x4  (Float M11..M44)   → стек трансформа�
 | `block.AddCircle(...)` / `block.AddPolyline(...)`, `CadColor.ByBlock` | Примитивы блока | `[TUT]` |
 | `drawing.ActiveSpace.AddInsert(pos, scale, angle, name)` | Вставка блока | `[TUT]` |
 | `drawing.ActiveSpace.Add(primitive)` / `AddText(...)` | Добавление примитива/текста | `[TUT]` |
+| `drawing.Blocks.IsExists(name)` / `Blocks.Remove(name)` / `Blocks.Select(...)` | Таблица блоков: проверка, удаление, перебор | `[CODE]` robur-mcp/BlockTools.cs |
+| `block.Entities` → коллекция сущностей; `block.Entities.Count` | Содержимое блока | `[CODE]` |
+| `block.Entities.CopyFrom(src, e => e.Layer = null, new ReferencesContext(drawing))` | Копирование сущностей **в** блок | `[CODE]` |
+| `drawing.ActiveSpace.Entities.CopyFrom(block.Entities, add, refCtx)` | Взрыв: копирование сущностей блока в пространство | `[CODE]` |
+| `entity.ScaleEntity(origin, xScale, yScale)`, `entity.Rotate(origin, angle)`, `entity.Move(x, y, z)` | Позиционирование при взрыве | `[CODE]` |
+| `new DwgInsert { Block, Position, Rotation, Scale }` + `ActiveSpace.Add(insert)` | Вставка блока объектом (альтернатива `AddInsert`) | `[CODE]` |
+| `insert.Block`, `insert.XScaleFactor / YScaleFactor / ZScaleFactor`, `insert.Rotation`, `insert.Position` | Свойства вставки | `[CODE]` |
+
+⚠️ При взрыве трансформации каждой сущности могут бросать исключение — оборачивать и
+удалять сбойную сущность из `ActiveSpace` (см. `BlockTools.cs`, `ExplodeBlock`).
+`ReferencesContext` (`Topomatic.Dwg`) нужен при копировании сущностей между блоками
+и пространством.
 
 ## Полилинии (запись)
 
@@ -259,3 +271,81 @@ poly.ExtendedData.TryAdd("RevcloudProps", xd);
 Rectangular (1), разброс хорд > 2× → Freehand (0). Регистрировать APPID в
 `doc.AppIds` **не нужно** — DxfWriter создаёт запись в таблице сам (проверено:
 `1001/1070/1040` на месте, APPID в таблице).
+
+---
+
+## Расширенный словарь сущности (`DwgDictionary`)
+
+`DwgEntity` (через базу `DwgObject`) несёт произвольный строковый словарь — штатное
+место для прикладных меток (`guid`, `name`, `libUid` и т. п.). `[CODE]` robur-mcp/DwgUtils.cs
+
+| API | Назначение | Статус |
+|---|---|---|
+| `entity.HasExtensionDictionary` → bool | Есть ли словарь | `[DECOMP]` |
+| `entity.CreateExtensionDictionary()` | Создать словарь, если нет | `[DECOMP]` |
+| `entity.GetExtensionDictionary()` → `Topomatic.Dwg.DwgDictionary` | Получить словарь | `[DECOMP]` |
+| `dict.SetString(key, value)` / `GetString(key, default)` | Строка | `[DECOMP]` |
+| `dict.SetInteger(key, int)` / `GetInteger(key, default)` | Целое | `[DECOMP]` |
+| `dict.SetDouble(key, double)` / `GetDouble(key, default)` | Дробное | `[DECOMP]` |
+| `dict.SetBoolean(key, bool)` / `GetBoolean(key, default)` | Логическое | `[DECOMP]` |
+
+```csharp
+if (!entity.HasExtensionDictionary)
+    entity.CreateExtensionDictionary();
+var dict = entity.GetExtensionDictionary();
+dict.SetString("guid", guidStr);
+dict.SetString("name", name);
+// поиск сущности в ActiveSpace по своему guid:
+if (e.HasExtensionDictionary && e.GetExtensionDictionary().GetString("guid", null) == guidStr) ...
+```
+
+`robur-mcp` дополнительно кэширует `guid → entity` в собственном `ObjectStorage`
+(`Topomatic.ToolBridge.Services`, **не** API Robur) — при поиске сначала проверяется
+кэш, затем перебор `drawing.ActiveSpace.Entities` по расширенному словарю. Кэш
+проверяет `entity.Drawing == drawing`, чтобы не отдать сущность чужого чертежа.
+
+## Слои
+
+| API | Назначение | Статус |
+|---|---|---|
+| `drawing.Layers` → `DwgLayers`: `IsExists(name)`, `this[name]` → `DwgLayer`, `Add(name)` → `DwgLayer`, `Remove(name)`, `Select(...)` | Таблица слоёв | `[CODE]` robur-mcp/DwgTools.Layers.cs |
+| `DwgLayer.Name`, `.Description`, `.Color` (`CadColor`), `.Color.ColorIndex`, `.Visible`, `.IsSystem` | Свойства слоя | `[CODE]`/`[DECOMP]` `Topomatic.Dwg.DwgLayer` |
+| `drawing.ActiveLayer` → `DwgLayer`, `drawing.ActiveLayer?.Name` | Активный слой | `[CODE]` |
+| `entity.Layer = drawing.Layers[name]` | Назначить слой сущности (проверив `IsExists`) | `[CODE]` |
+
+## Пространство чертежа (`ActiveSpace`)
+
+| API | Назначение |
+|---|---|
+| `drawing.ActiveSpace.Entities` | Коллекция сущностей пространства: `Count`, `Add`, `Remove`, `CopyFrom(...)` |
+| `drawing.ActiveSpace.Bounds` | Рамка пространства (`Left`/`Right`/`Top`/`Bottom`) |
+
+## Штриховки
+
+| API | Назначение | Статус |
+|---|---|---|
+| `HatchPatternManager.Current` → `HatchPatternManager`, `.GetDefinedPatterns()` → перечисление `HatchPattern` | Реестр паттернов | `[CODE]` robur-mcp/DwgTools.cs |
+| `HatchPattern.Name`, `.Description`, `pattern.Select(line => ...)` | Описание паттерна; у линии — `Angle`, `StartX/StartY`, `DeltaX/DeltaY`, `LinetypePattern` | `[CODE]` |
+| `DwgHatch.PatternName`, `.PatternScale`, `.PatternAngle`, `.PatternType` (`AcPatternType`), `.HatchStyle` (`AcHatchStyle`) | Задание штриховки | `[CODE]` |
+
+Энумы (подтверждены): `Topomatic.Dwg.Entities.AcPatternType`,
+`Topomatic.Dwg.Entities.AcHatchStyle`, `Topomatic.Dwg.TextAlignment`,
+`Topomatic.Dwg.AttachmentPoint` — разбираются по имени через `Enum.TryParse`.
+
+## Таблицы (`DwgTable`)
+
+| API | Назначение | Статус |
+|---|---|---|
+| `new DwgTable(drawing.TableStyles.Standard, rowCount, 1, columnCount, 1)` | Создать таблицу (`DwgTableStyle`) | `[CODE]` robur-mcp/DwgTools.Create.cs |
+| `table.Prepare(drawing)` | Подготовить (обязательно) | `[CODE]` |
+| `table.UnMergeAll(true)` / `table.MergeCells(c1, r1, c2, r2)` | Объединение ячеек | `[CODE]` |
+| `table[row, column]` → ячейка; `.SourceText` | Текст ячейки | `[CODE]` |
+| `table.Position` (`Vector3D`), затем `ActiveSpace.Add(table)` | Позиционирование и вставка | `[CODE]` |
+
+## Определение типа сущности
+
+Классы сущностей, встречающиеся в robur-mcp: `DwgPolyline`, `DwgTable`, `DwgMText`,
+`DwgText`, `DwgCircle`, `DwgLine`, `DwgHatch`, `DwgInsert`,
+`DwgModel3DElement` с `Element is StaticSolidElement` (твердое тело) или
+`Element is ConstructedModel3dElement` (TLC), `DwgSmdxPointLandscaping` (посадка).
+Определение — цепочкой `is` (см. `DwgUtils.GetEntityType`).
