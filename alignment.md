@@ -354,6 +354,23 @@ ActConstruction)` → `Construction`** (регистрация рецепта), 
 `Contains(uint)`/`ContainsConstruction`, `Remove(uint)`, `CloneAndReplace`, константа
 `EmptyConstructionId = 0`.
 
+**Id конструкций — тот же механизм, что у Gridiron** `[DECOMP]` (`Tools/Decomp/
+Topomatic.Alg.Crs.ConstructionDictionary.cs`):
+
+| Операция | Поведение счётчика ключей |
+|---|---|
+| Ctor | счётчик = 0; тут же регистрируется **Empty** (id = 0), счётчик → 1 |
+| `Add(name, userDefined, act)` | `Id = counter++` → `dict[Id] = construction` |
+| `Remove(id)` | счётчик **НЕ сбрасывает** → повторные прогоны дают растущие ключи |
+| `Clear()` | счётчик = 0 + заново Empty (id 0) — **отличие от Gridiron** (у того Clear счётчик не трогает) |
+| `SaveToStg` | пишет каждый ключ в атрибут Stg-узла (кроме 0) |
+| `LoadFromStg` | ключи читаются из Stg и кладутся **прямо в `InnerDictionary`** (дырки сохраняются), счётчик = max+1 |
+
+`Construction.Id` — `internal set` (записывать через рефлексию, хоть нечасто нужно);
+`Section.ConstructionId` — **публичный set** (напрямую). Ключи в `.railx` сохраняются
+поэлементно, при загрузке восстанавливаются → эталонные 2,3,4 — сохранённые ключи
+исходной сессии, дырки от удалённых конструкций.
+
 **Импорт рецепта из файла `.act`** — штатный путь, `[DECOMP] ilspycmd
 Topomatic.Crs.dll` + asmread Topomatic.Alg.dll. Воспроизведение команд декомпиляции:
 
@@ -665,6 +682,15 @@ public void Assign(AlgExtendedKilometres kilometres)
   ещё на экспорте. Читать/писать только через ПОЛЯ (`GetField`/`try_add_field`),
   как у `VertexItem`. Формат JSON-экспорта:
   `{ "type": "TrainSpeeds", "count": N, "items": [{ "Station":.., "Passenger":.., "Cargo":.., "Empty":.. }] }`.
+- **Пустой элемент `{}` (фикс 2026-09-17)**: если источник уже потерял значения
+  (экспорт через объектно-свойственный выгрузчик), импортёр **не пропускает**
+  элемент, а создаёт дефолтную запись `TrainSpeed(0,0,0,0)`, чтобы `Count`
+  коллекции не обнулялся (эталон: `count:1, items:[{}]`). Частично заданные
+  элементы (без всех 4 полей) по-прежнему пропускаются с пометкой в stats.
+- **C#-экспортёр (фикс 2026-09-17)**: `RailJson.cs` выгружал скорости через
+  `BuildCollectionJson` → `BuildObjectDict` (свойства) — тот же баг `{}`.
+  Добавлен `BuildTrainSpeeds` (чтение полей `TryAddField`, зеркало
+  `rail_json.build_train_speeds`).
 
 ## Условные знаки (`ConventionalSigns`) — write-API
 
@@ -793,6 +819,30 @@ public void Assign(AlgExtendedKilometres kilometres)
   провал создания — это `errors`/`skipped`, а не исключение всей команды (в
   `stats` не заводить новых ключей — рендер знает только applied/errors/skipped/readonly;
   `stats["warnings"]` = `KeyError`, лог 22:03 прервал импорт доп. блоков).
+
+### Диагностические блоки `values` / `stationValues` (разбор 2026-09-17)
+
+`dump_parameters` пишет три блока; рабочий источник параметров поперечника —
+`<Variables>` внутри `.act` (`render_recipe_variables_from_registry`), а блоки
+ниже — **диагностика** (экспортёр сам помечает «не рабочий файл экспорта»):
+
+- `values` — значения всех параметров на пикетах 0/600 через
+  `IParameter.Item[double]` (`parameter_value_at`, C# — `ParameterValueAt`).
+  **На импортированной модели индексатор не отвечает** (все `<null>`): код чтения
+  в C# и Python идентичен (GetProperty("Item") → GetValue, catch → null), значит
+  это состояние модели, а не экспортёра: кадры/индексы таблиц не собраны до
+  расчёта, тогда как у нативной модели они есть. Данные при этом на месте —
+  `stationValues` и табличные строки совпадают.
+- `stationValues` — через `GetStationParams(double)` (замыкание generic по
+  object/double/String/int). Сверка по эталону: **все 148 имён × 4 пикета
+  (0/500/600/2000) совпадают байтово** (0 расхождений) — общий словарь станции
+  работает и на импортированной модели. Рабочий блок `.act` (32/33 файла)
+  совпадает тоже — round-trip параметров полный.
+- **Фикс 2026-09-17:** блок `diagnostics` (найденные методы GetStationParams и
+  ошибки замыкания генерик-метода) пишется **только при реальном сбое** словаря
+  станции (хоть один `sp is None`); раньше он добавлялся всегда (station_params
+  накапливает записи методов и на успехе) — лишний 5-й элемент в stationValues
+  ломал побайтовое сравнение с канонным экспортом (4 элемента).
 
 ## Вираж, водоотвод, лотки (M4) — write-API
 

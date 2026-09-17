@@ -85,9 +85,9 @@ public class Gridiron : UndoObject, IAlignmentContainer, IGridironContainer
 
 **[DECOMP] Присвоение Id при Add:**
 ```csharp
-// Gridiron.__nextId инициализируется в 1 (ctor).
-// Add(...): item.Id = __nextId++;  (внутренний set)
-// НЕЛЬЗЯ задавать Id вручную до Add — контейнер сам назначит.
+// Gridiron.__nextId инициализируется в 1 (ctor). Add(...): item.Id = __nextId++;
+// Clear() НЕ сбрасывает счётчик → повторные импорты в одной сессии дают растущие id.
+// Счётчик сохраняется в Stg (node.AddUInt32(11520, __nextId)) при записи в .railx.
 ```
 
 **Undo-паттерн при добавлении:**
@@ -101,6 +101,31 @@ try
 }
 finally { gridiron.EndUpdate(); }
 ```
+
+**[DECOMP] Восстановление Id из файла (generic-ветка LoadFromStg):**
+
+В .railx хранятся id **поэлементно** (GridironObject.LoadFromStg читает `node.GetUInt32(0, 0)`),
+а счётчик сета — в узле 11452. При загрузке `LoadFromStg` кладёт элементы **напрямую
+в `InnerList`** (без Add), сортирует, ставит `element.Id` и счётчик:
+
+```csharp
+// Ветка «generic» (если узлы 11270/11290/11308 отсутствуют):
+__nextId = node.GetUInt32(11452, 1u);              // восстановить счётчик
+for (int i = 0; i < array.Count; i++) {
+    StgNode node8 = array.GetNode(i);
+    var gridironObject2 = /* создать по типу из node8 */;
+    gridironObject2.LoadFromStg(node8, context);     // Id = node8.GetUInt32(0, 0)
+    InnerList.Add(new KeyValuePair<uint, GridironObject>(gridironObject2.Id, gridironObject2));
+}
+InnerList.Sort(comparer);                           // по Key (id)
+```
+
+Это позволяет сохранять **дырки в id** (1, 4, 5) — элементы 2, 3 были удалены
+в редакторе, но их id не переназначались. Импортёр `rim_commands.py` мимикрирует
+этот путь (метод `_restore_gridiron_ids`): читает `id` из `turnouts.json`,
+кладёт `KeyValuePair` в `InnerList` с сортировкой, ставит `element.Id` через
+`set_prop_any` (internal setter) и счётчик через `set_private_field` на
+единственное `uint`-поле Gridiron (обфусцированное имя — найти по типу).
 
 ---
 
@@ -549,7 +574,9 @@ public enum JointlessJointType { Aluminothermy, ElectricalContact }
 ## Заметки для реализации импорта
 
 1. **Создание `SimpleTurnout`:** конструктор с 22 аргументами (см. выше). Все позиционные
-   аргументы обязательны. После создания — `gridiron.Add(item)` (Id присваивается автоматически).
+   аргументы обязательны. Импортёр НЕ делает `gridiron.Add(item)` сразу — элементы копятся
+   в `pending`, затем id восстанавливаются во `InnerList` напрямую (мимикрия generic-ветки
+   LoadFromStg). При падении — фоллбек на обычный `Add` (id по счётчику, 1..N).
 
 2. **Создание `BufferStop`:** конструктор `BufferStop(object parent, string name)`.
    Minimal: `new BufferStop(gridiron, "УП")`.
@@ -557,14 +584,15 @@ public enum JointlessJointType { Aluminothermy, ElectricalContact }
 3. **Создание `GridironElement`:** конструктор `GridironElement(object parent, string name, double offset, bool drawBackward)`.
    Minimal: `new GridironElement(gridiron, "Начало пути", 0.0, false)`.
 
-4. **Порядок��作аций:**
+4. **Порядок операций:**
    ```
    gridiron.BeginUpdate();
    try {
+       gridiron.Clear();
        var turnout = new SimpleTurnout(gridiron, ...params...);
-       gridiron.Add(turnout);     // ← Id присваивается здесь
        var stop = new BufferStop(gridiron, "УП");
-       gridiron.Add(stop);
+       // ... копить в pending[(el, json_id), ...]
+       // Восстановление id (InnerList-путь) или фоллбек на Add.
    } finally { gridiron.EndUpdate(); }
    ```
 
