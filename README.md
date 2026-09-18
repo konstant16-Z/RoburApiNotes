@@ -65,6 +65,7 @@
 | `sheets.md` | Ведомости и поля шаблонов |
 | `ironpython.md` | Платформа скриптов: IronPython 2.6 в Robur (маршалинг строк, индексаторы, bool, dict, обфускация) |
 | `turnouts.md` | Стрелочные переводы / путевое развитие: `Gridiron`, `SimpleTurnout`, `BufferStop`, `GridironElement`, enum'ы, JSON-формат |
+| `landallotment.md` | Землеустройство/межевание: `LandAllotment`, линии (Design/Existent/Temp/Crs), узлы, стили, слои, расширение доступа `GetLandAllotment` |
 | `pitfalls.md` | Сквозные ловушки API (структуры, undo, лицензии, null-модели, Owner таблиц M4) |
 
 ## Как пополнять
