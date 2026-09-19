@@ -25,6 +25,30 @@
 
 ⚠️ **У `GetPoint` есть обе сигнатуры** — проверяйте, какую вызываете (см. `pitfalls.md`).
 
+**Выбора папки в SDK Robur нет** — проверены `Topomatic.Controls`, `Topomatic.Cad.View`
+(`CadCursors`), `Topomatic.ApplicationPlatform`, контроллеры: ни диалогов `Folder`/`Directory`,
+ни ссылок на стандартные диалоги. Рабочий путь — стандартный WinForms
+`System.Windows.Forms.FolderBrowserDialog` (`Description`, `ShowNewFolderButton`,
+`SelectedPath`, `ShowDialog() == DialogResult.OK`), доступен и из C#-плагина, и из
+IronPython 2.6 (`clr.AddReferenceByPartialName("System.Windows.Forms")`), при недоступности
+диалога — фоллбэк на текстовый `CadCursors.GetString`:
+
+| API | Назначение | Статус |
+|---|---|---|
+| `System.Windows.Forms.FolderBrowserDialog` | Графический выбор папки (WinForms, .NET 4.8; команды Robur — UI-поток, STA) | `[CODE]` SurfaceIO/Commands/ExportCommand.cs:113-148 (прогон подтверждён); RailModelExporter `rail_commands.py:_browse_folder` (IronPython 2.6) |
+
+```csharp
+// C# (проверено в SurfaceIO/ExportCommand.cs)
+using (var dlg = new FolderBrowserDialog())
+{
+    dlg.Description = "Укажите папку экспорта:";
+    dlg.ShowNewFolderButton = true;
+    if (dlg.ShowDialog() == DialogResult.OK)
+        folder = dlg.SelectedPath;
+    // иначе — подтверждённый фоллбэк на CadCursors.GetString
+}
+```
+
 Вариант с **опциями** (`[CODE]` robur-mcp/CadViewTools.cs) — третьим аргументом
 передаётся массив подписей; результат `UserCmd` означает выбор опции, сама опция —
 в `cadView.LastUserCmd`:
