@@ -6,7 +6,7 @@
 
 **Статус:** `[DECOMP]` (ilspycmd v11.0.0.9375) + `[REF]` (help.topomatic.ru/next).
 Все имена и сигнатуры перекрыты декомпиляцией; справочник сверялся параллельно.
-Декомпиляции типов — в `Tools/Decomp/Topomatic.Turnouts.*.cs`.
+Декомпиляции — локальные (см. статусы).
 
 ---
 
@@ -26,10 +26,10 @@ Gridiron gridiron = gridironPlugin.Gridiron;  // свойство .Gridiron
 // gridiron.Alignment → привязанная ось (IAlignmentContainer)
 ```
 
-**Как экспортёр (RailJson.cs, [CODE]) находит контейнер:**
+**Как экспортёр (`[CODE]`) находит контейнер:**
 1. `axis.Plugins["Gridiron"]` по строковому ключу — самый быстрый.
 2. Если не найден — `ReadKeyed(plugins, "Gridiron")` или `plugin.Gridiron` через `IEnumerable` перебор.
-3. Детали поиска — метод `BuildTurnouts`, строки 3574–3711 `RailModel/RailModel/RailJson.cs`.
+3. Детали поиска — метод `BuildTurnouts`.
 
 ---
 
@@ -121,7 +121,7 @@ InnerList.Sort(comparer);                           // по Key (id)
 ```
 
 Это позволяет сохранять **дырки в id** (1, 4, 5) — элементы 2, 3 были удалены
-в редакторе, но их id не переназначались. Импортёр `rim_commands.py` мимикрирует
+в редакторе, но их id не переназначались. Импортёр мимикрирует
 этот путь (метод `_restore_gridiron_ids`): читает `id` из `turnouts.json`,
 кладёт `KeyValuePair` в `InnerList` с сортировкой, ставит `element.Id` через
 `set_prop_any` (internal setter) и счётчик через `set_private_field` на
@@ -508,7 +508,7 @@ public enum JointlessJointType { Aluminothermy, ElectricalContact }
 
 ## Соответствие JSON ↔ Свойства (таблица для импорта)
 
-Источник: `BuildGridironTurnout` (RailJson.cs:3795–3869) + `BuildTurnouts` (3574–3711).
+Источник: методы построения `GridironTurnout`/`Turnouts` экспортёра `[CODE]`.
 
 | JSON-ключ | C#-свойство | Тип | Статус |
 |---|---|---|---|
@@ -553,21 +553,17 @@ public enum JointlessJointType { Aluminothermy, ElectricalContact }
 
 ```bash
 # Список всех типов сборки (классы / интерфейсы / структуры / enum):
-"/mnt/c/Users/zkons/.dotnet/tools/ilspycmd.exe" --list c "C:\\...\\Topomatic.Turnouts.dll"
-"/mnt/c/Users/zkons/.dotnet/tools/ilspycmd.exe" --list i "C:\\...\\Topomatic.Turnouts.dll"
-"/mnt/c/Users/zkons/.dotnet/tools/ilspycmd.exe" --list s "C:\\...\\Topomatic.Turnouts.dll"
-"/mnt/c/Users/zkons/.dotnet/tools/ilspycmd.exe" --list e "C:\\...\\Topomatic.Turnouts.dll"
+ilspycmd --list c <путь>\Topomatic.Turnouts.dll
+ilspycmd --list i <путь>\Topomatic.Turnouts.dll
+ilspycmd --list s <путь>\Topomatic.Turnouts.dll
+ilspycmd --list e <путь>\Topomatic.Turnouts.dll
 
 # Декомпиляция конкретного типа (pub-члены читаемы, приватные обфусцированы):
-# результат сохранять в Tools/Decomp/ (см. Tools/DECOMPILATION.md):
-"/mnt/c/Users/zkons/.dotnet/tools/ilspycmd.exe" \
-  -t "Topomatic.Turnouts.SimpleTurnout" \
-  "C:\\OpnCod_Proj\\PluginExample-main\\Development\\Out\\Bin\\Topomatic.Turnouts.dll" \
-  > Tools/Decomp/Topomatic.Turnouts.SimpleTurnout.cs
+ilspycmd -t "Topomatic.Turnouts.SimpleTurnout" <путь>\Topomatic.Turnouts.dll
 ```
 
 **Важно:** ilspycmd v11 требует файл-аргумент как **полный Windows-путь** (из WSL
-относительные пути не резолвятся). Подробности — `Tools/DECOMPILATION.md`.
+относительные пути не резолвятся).
 
 ---
 
@@ -606,5 +602,6 @@ public enum JointlessJointType { Aluminothermy, ElectricalContact }
 7. **Формат Vector2D в JSON:** `"X:447,986505... Y:1716,140013..."` — локаль с запятой.
    Парсинг: после `X:` всё до пробела, после `Y:` — до конца строки. Локаль — `CultureInfo("ru-RU")`.
 
-8. **Эталонные данные:** `Development/Out/Bin/Export_Rail1/Путь 1.railx/model/Turnouts/turnouts.json`
+8. **Эталонные данные:** тестовый файл `.railx` (внутри —
+   `model/Turnouts/turnouts.json`)
    — 3 элемента (SimpleTurnout «1А» id=1, BufferStop «УП» id=4, GridironElement «Начало пути» id=5).

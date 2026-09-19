@@ -8,7 +8,7 @@
 | `StgNode.AddString/GetString, AddInt32/GetInt32, AddBoolean, AddDouble` | Поля узла Stg | `[TUT]` |
 | `node.AddArray(name, StgType.X)`, `node.GetArray(name, StgType.X)` | Массив; элементы: `AddString(i)`/`GetString(i)` | `[TUT]` |
 | `StgDocument.LoadFromStreamAsBinary(stream)` / `SaveToStreamAsBinary(stream)` | Документ из файлового потока (бинарный) | `[TUT]` |
-| `StgDocument.LoadFromFileAsXml(path)` / `SaveToFileAsXml(path)` | То же, но XML-файл (профили настроек) | `[CODE]` `RoadStyle/RoadProfileCommand.cs` |
+| `StgDocument.LoadFromFileAsXml(path)` / `SaveToFileAsXml(path)` | То же, но XML-файл (профили настроек) | `[CODE]` RoadStyle |
 | `doc.Body.GetNode("meta")`, `meta.GetBoolean("has_plan", false)`, `meta.AddBoolean("has_plan", v)` | Служебный узел дерева Stg | `[CODE]` |
 | `alignment.Style.SaveToStg(node)` / `LoadFromStg(node)` | Стиль трассы — сохранение/загрузка напрямую | `[CODE]` |
 
@@ -32,7 +32,7 @@ doc.SaveToFileAsXml(path);
 | `PlanModelEditor` | С плановым слоем: + `CreatePlanLayer`, `ReloadModel`, `RemovePlanLayer` | `[TUT]` |
 | `IProjectModel.LockRead()/LockWrite()/UnlockWrite()` | Блокировка модели (в `try/finally`) — см. ловушку в `pitfalls.md` (Model остаётся null до LockRead) | `[TUT]`+`[CODE]` |
 | `IProjectModel.Modified` | Ручной флаг модификации (когда нет undo-обёрток) | `[TUT]` |
-| `PluginCoreOps.CreateModel(parent, type, name)` | Создание новой модели (ЦММ — см. `surface.md`) | `[CODE]` DemLoader/TerrainWriter.cs |
+| `PluginCoreOps.CreateModel(parent, type, name)` | Создание новой модели (ЦММ — см. `surface.md`) | `[CODE]` DemLoader |
 | `base.TransactionManager` / `BeginUpdate()/EndUpdate()` | Групповое изменение проекта | `[TUT]` |
 
 ### Добавление/дублирование/перемещение модели в дереве проекта `[CODE]` (пример от Топоматик; Robur-прогон не выполнялся)
@@ -74,11 +74,11 @@ var moved = ApplicationHost.Current.Plugins.Execute(
 |---|---|---|
 | `PluginCoreOps.CreateFolder(...)` | Категория проекта | `[TUT]` |
 | `PluginCoreOps.FindModelPathId(...)`, `FindModel(model)` | Поиск модели в дереве | `[TUT]` |
-| `PluginCoreOps.FilterModels(pred)` / `FilterOpenedModels(pred)` | Обход дерева/открытых моделей (предикат `IProjectModel` → bool) | `[CODE]` Runoff/SurfaceAccess.cs:43, ModelDesk/RoadModelAccess.cs:57 |
-| `PluginCoreOps.GetFileName(node)` | Имя файла модели (null-safe; пустое → «(без имени)») | `[CODE]` Runoff/SurfaceAccess.cs:99 |
-| `node.GetChilds()` → `IProjectModel[]` | Дети узла; **бросает `NullReferenceException`** — всегда `try/catch`, возврат null | `[CODE]` DemLoader/TerrainWriter.cs:89 |
+| `PluginCoreOps.FilterModels(pred)` / `FilterOpenedModels(pred)` | Обход дерева/открытых моделей (предикат `IProjectModel` → bool) | `[CODE]` Runoff, ModelDesk |
+| `PluginCoreOps.GetFileName(node)` | Имя файла модели (null-safe; пустое → «(без имени)») | `[CODE]` Runoff |
+| `node.GetChilds()` → `IProjectModel[]` | Дети узла; **бросает `NullReferenceException`** — всегда `try/catch`, возврат null | `[CODE]` DemLoader |
 
-### Обход дерева через `IProjectModel` (`[CODE]` robur-mcp/ProjectManager.cs)
+### Обход дерева через `IProjectModel` (`[CODE]` robur-mcp)
 
 | API | Назначение | Статус |
 |---|---|---|

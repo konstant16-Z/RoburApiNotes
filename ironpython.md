@@ -11,7 +11,7 @@ IronPython. Это не CPython и не standalone-интерпретатор: �
 |---|---|---|
 | `IronPython.dll` FileVersion | **2.6.1008.2** | `[REFL]` ilspycmd edu 16.0.62.10 |
 | `IronPython.dll` AssemblyVersion | **2.6.10920.0** | `[REFL]` то же |
-| Ядро Python | Python **2** (не 3): int/int → целочисленное деление, `print` — оператор, есть `basestring`/`long`, нет `__future__` | `[CODE]` шапки rim_commands.py, rail_json.py |
+| Ядро Python | Python **2** (не 3): int/int → целочисленное деление, `print` — оператор, есть `basestring`/`long`, нет `__future__` | `[CODE]` (шапки скриптов импортёра/экспортёра) |
 | DLR | `Microsoft.Scripting.dll`, `Microsoft.Dynamic.dll`, `Microsoft.Scripting.Core.dll`, `Microsoft.Scripting.Debugging.dll`, `IronPython.Modules.dll` — рядом с `Robur.exe` | `[REFL]` |
 | Обёртка плагинов | `Topomatic.Scripting.dll`, `Topomatic.Scripting.IronPython.dll` (host, оверлод команд) | `[REFL]` |
 
@@ -30,28 +30,27 @@ IronPython. Это не CPython и не standalone-интерпретатор: �
 ## Строки: маршалинг .NET→Python теряет символы
 
 Главная ловушка платформы. **При каждом переходе строка из .NET в Python может потерять первые
-символы**; чем больше промежуточных конвертаций, тем больше потеря (`[CODE]`:
-rim_commands.py:295, rim_reflection.py:889). Следствия:
+символы**; чем больше промежуточных конвертаций, тем больше потеря (`[CODE]`). Следствия:
 
 - **Не сравнивайте и не проверяйте строки «в Python»** (например, схему из манифеста):
   получите ложное несовпадение. Проверку делайте целиком на стороне .NET и наружу пускайте
-  только `bool` — `tok.ToString().Contains(fragment)` (`token_contains`, rim_reflection.py:885).
-- Строки JSON (токены JValue) через `_jvalue_str` (rim_reflection.py) — **только диагностика**:
+  только `bool` — `tok.ToString().Contains(fragment)` (`token_contains`).
+- Строки JSON (токены JValue) через `_jvalue_str` — **только диагностика**:
   живой Robur режет первые символы — прямой `tok.Value` теряет 1 (лог 20:24), отражённый
   `GetValue` — 2 (лог 20:54: «_LDW1»→«DW1», «E»→«»). Для ЛОГИКИ значения читайте числами
   (`jnum`/`Convert.ToDouble` на токене) и именами (`ToObject(String)` + `.Equals` в .NET).
   Строки МОДЕЛИ (string-типизированный `read` — ключи `KeyValuePair<string,T>` и т.п.)
   проходят ПОЛНЫМИ. `unicode()` для строк не нужен (гипотеза «съедает первый символ»
   опровергнута probe_jstr).
-- **Запись строк в модель** — через `set_jstring` (rim_reflection.py:389): строка целиком
+- **Запись строк в модель** — через `set_jstring`: строка целиком
   доходит до .NET, без потерь. Проверка записанного — `jstring_equals_prop` (.NET-сравнение, bool).
 - Для чисел/bool/enum маршалинг надёжен (см. ниже) — необфусцированные примитивы целые.
 
 ## BOM: `\ufeff` не входит в isspace() в Python 2
 
 `u"\ufeff".strip()` ничего не удаляет — в отличие от Python 3. При разборе JSON-строк
-обрабатывайте BOM вручную: `if s.startswith(u"\ufeff"): s = s[len(u"\ufeff"):].strip()`
-(rim_reflection.py:732, 880). Файлы самих скриптов — `# -*- coding: utf-8 -*-`;
+обрабатывайте BOM вручную: `if s.startswith(u"\ufeff"): s = s[len(u"\ufeff"):].strip()`.
+Файлы самих скриптов — `# -*- coding: utf-8 -*-`;
 
 ## Обфускация имён и исключения
 
@@ -71,7 +70,7 @@ rim_commands.py:295, rim_reflection.py:889). Следствия:
   Python-исключением `IronPython.Runtime.Exceptions.PythonExceptions+_UnicodeEncodeError: ('unknown', '\x00', 0, 1, '')`
   — интерпретатор пытается закодировать Python-строку в байты кодеком по умолчанию,
   который в Robur сломан (`'unknown'`). Живой лог: сборка массива аргументов ctor
-  UserProfile с `System.String(nm)` внутри → падение на «массив аргументов» (rim_commands.py:2308).
+  UserProfile с `System.String(nm)` внутри → падение на «массив аргументов».
   **Передавайте сырые Python/CLR-значения** — конвертацию в параметры метода делает сам
   `MethodInfo.Invoke`/`Activator.CreateInstance` (путь `rim_reflection.construct`):
   `objs = System.Array[System.Object]([up, nm, ds, color, sd])` вместо
@@ -82,43 +81,40 @@ rim_commands.py:295, rim_reflection.py:889). Следствия:
 - **У `JObject` два публичных индексатора** — `this[object]` и `this[string]`
   (декомпиляция Newtonsoft.Json.Linq.JObject) → `GetProperty("Item")` или `get_Item` без
   типов даёт `AmbiguousMatchException`. Индексатор берите явно:
-  `GetMethod("get_Item", (String,))` + `Invoke(jobj, (key,))` — `jindex`
-  (rim_reflection.py:750). На корневом объекте JSON прямой `jobj[key]` работал — это запасной
+  `GetMethod("get_Item", (String,))` + `Invoke(jobj, (key,))` — `jindex`.
+  На корневом объекте JSON прямой `jobj[key]` работал — это запасной
   путь, но на узлах из `JArray` молча падал (`jtyped`/`Properties()` на узлах — лог 12:06/12:16).
 - **`JToken.ToObject(Boolean)` молча возвращал default** (живой прогон 01:57 — «FromEdge не
   разобран», «от бровки=нет»). Для bool — только `Convert.ToBoolean(token, invariant)` через
-  `jbool` (rim_reflection.py:793). Числа — `Convert.ToDouble` через `jnum`, enum — `jtyped`
+  `jbool`. Числа — `Convert.ToDouble` через `jnum`, enum — `jtyped`
   (часть имени после последней точки парсится в .NET).
 - **JSON-null**: `JValue.Value` в IronPython 2.6 для `null`-токена не отдаёт значение —
-  распознавайте по `token.Type == JTokenType.Null` (rim_reflection.py:937, jbool:807).
+  распознавайте по `token.Type == JTokenType.Null` (`jbool`).
 
 ## .NET-типы в Python
 
 - **`isinstance(py_int, IConvertible)` ложно** — PythonInt не реализует интерфейс, а
   `GetType()` у Python `int`/`float` возвращает System.Int32/System.Double. Проверки — по
-  CLR-типу (`t.IsPrimitive`, `t == Decimal`), не по интерфейсу (rail_json.py:342).
+  CLR-типу (`t.IsPrimitive`, `t == Decimal`), не по интерфейсу.
 - **Boxed-структуры: прямое присваивание молча не пишет.** `node.X = ...` на элемент-структуре
   мутирует локальную копию; в коллекцию попадает прежнее значение (подтверждено M3: узлы
   добавились, станции/отметки остались 0, в keyed-collection RedProfile узлы со станцией 0
-  схлопнулись). Пишите только через `FieldInfo.SetValue` — `set_field`
-  (rim_commands.py:2039, 2181; rim_reflection.py:366).
+  схлопнулись). Пишите только через `FieldInfo.SetValue` — `set_field`.
 - **Python-dict перечисляется в порядке хеш-таблицы**, а не вставки → JsonConvert пишет ключи
   «перемешанно». Для детерминированного JSON используйте `.NET Dictionary[String, object]`
-  (`_dict()`, rail_json.py:400) — перечисляется в порядке Add, как в C#-версии.
+  (`_dict()`) — перечисляется в порядке Add, как в C#-версии.
 
 ## Модули и скоуп
 
 - **RailPyBridge каждый вызов выполняет файлы скриптов заново**, но `import` кэширует
-  `sys.modules` в рамках движка → принудительный `del sys.modules[...]` до импорта
-  (rim_commands.py:19-24).
+  `sys.modules` в рамках движка → принудительный `del sys.modules[...]` до импорта.
 - **Функции, внедрённые в скрипт-скоуп до `ExecuteFile`** (например, `asm_info`), не видны из
-  модульных копий (`import rail_json` создаёт собственные глобалы) → получались `null`.
-  Метаданные (сборка, sha1) считайте прямо в Python через отражение по загруженным сборкам
-  (rail_json.py:105).
+  модульных копий (`import` скрипта создаёт собственные глобалы) → получались `null`.
+  Метаданные (сборка, sha1) считайте прямо в Python через отражение по загруженным сборкам.
 
 ## Воспроизведение вне Robur (Linux / .NET Core)
 
-Стенд `/tmp/opencode/ipy_test` (хост net10 + IronPython 2.6.1008.2 из Robur edu):
+Стенд (`[TEST]`): хост net10 + IronPython 2.6.1008.2 из Robur edu:
 
 - IronPython 2.6 на .NET Core требует пакетов `System.CodeDom` и
   `System.Text.Encoding.CodePages` + `Encoding.RegisterProvider(CodePagesEncodingProvider.Instance)`

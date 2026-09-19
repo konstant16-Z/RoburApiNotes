@@ -1,6 +1,6 @@
 # ApiNotes — Чертёж (Topomatic.Dwg): модель, сущности, запись DXF/DWG
 
-База `[TUT]` (tutorial6), дополнена `[CODE]` (New_export/src/DxfExport — конвертеры сущностей,
+База `[TUT]` (tutorial6), дополнена `[CODE]` (DxfExport — конвертеры сущностей,
 запись DXF/DWG через ACadSharp; DemLoader/Runoff).
 
 ## Сборки
@@ -16,7 +16,7 @@
 | API | Назначение | Статус |
 |---|---|---|
 | `DrawingLayer.GetDrawingLayer(cadView)`, `layer.Drawing` | Слой и чертёж | `[TUT]` |
-| `Drawing.ActiveDocument` | Текущий открытый чертёж (статическое свойство) | `[CODE]` DxfExport/SPEC §2.4 |
+| `Drawing.ActiveDocument` | Текущий открытый чертёж (статическое свойство) | `[CODE]` DxfExport |
 | `drawing.ActiveSpace` | Текущее пространство (Model или Layout) | `[TUT]` |
 | `drawing.BeginUpdate()/EndUpdate()` | Групповое изменение чертежа (парное, в `try/finally`) | `[TUT]` |
 
@@ -24,7 +24,7 @@
 
 | API | Назначение | Статус |
 |---|---|---|
-| `drawing.Layouts` → `DwgLayouts : Collection<DwgLayout>` | Все пространства документа; `Layouts[0]` — всегда `"Model"` (Model Space) | `[CODE]` DxfExport/SPEC §2.4 |
+| `drawing.Layouts` → `DwgLayouts : Collection<DwgLayout>` | Все пространства документа; `Layouts[0]` — всегда `"Model"` (Model Space) | `[CODE]` DxfExport |
 | `layout.Name` / `layout.Block` | Имя листа; `Block` (`DwgBlock`) — сущности paper space листа | `[CODE]` |
 | `DwgViewport` | Окно просмотра Model→Layout; **пропускается** при экспорте (служебная) | `[CODE]` |
 
@@ -46,19 +46,19 @@ foreach (DwgLayout layout in drawing.Layouts)
 
 | Robur класс | Проверенные свойства | Статус |
 |---|---|---|
-| `DwgLine` | `Start[2]`, `End[2]` | `[CODE]` DxfExport/SPEC §3.3 |
+| `DwgLine` | `Start[2]`, `End[2]` | `[CODE]` DxfExport |
 | `DwgCircle` | `Center[2]`, `Radius` | `[CODE]` |
 | `DwgArc` | `Center[2]`, `Radius`, `StartAngle`, `EndAngle` | `[CODE]` |
-| `DwgPolyline` | `IEnumerable<BugleVector2D>` — у элемента поля `.Vertex.X/.Y`, `.Bugle`; `.Closed`; **свойства `Vertices` НЕТ** (перебор + `ConvertToPosArray` для выборки) | `[CODE]` PolylineConverter.cs, DemLoader |
+| `DwgPolyline` | `IEnumerable<BugleVector2D>` — у элемента поля `.Vertex.X/.Y`, `.Bugle`; `.Closed`; **свойства `Vertices` НЕТ** (перебор + `ConvertToPosArray` для выборки) | `[CODE]` DxfExport, DemLoader |
 | `DwgPolyline3D` | 3D-аналог полилинии | `[CODE]` |
-| `DwgText` / `DwgMText` | `Position[2]`, `Value`, `Height`, `Rotation`, `FontName` | `[CODE]` DxfExport/SPEC §3.3 |
-| `DwgInsert` | `Block` (у вставки без блока **null или бросает** — оборачивать try/catch), `Block.Name`, `XScaleFactor/YScaleFactor/ZScaleFactor`, `Rotation` (рад), `Matrix` | `[CODE]` InsertConverter.cs |
-| `DwgEllipse` | `MajorAxe` — **опечатка API** (вектор центр→конец большой оси), `MinorRatio`, `StartAngle/EndAngle` (рад) | `[CODE]` EllipseConverter.cs |
+| `DwgText` / `DwgMText` | `Position[2]`, `Value`, `Height`, `Rotation`, `FontName` | `[CODE]` DxfExport |
+| `DwgInsert` | `Block` (у вставки без блока **null или бросает** — оборачивать try/catch), `Block.Name`, `XScaleFactor/YScaleFactor/ZScaleFactor`, `Rotation` (рад), `Matrix` | `[CODE]` DxfExport |
+| `DwgEllipse` | `MajorAxe` — **опечатка API** (вектор центр→конец большой оси), `MinorRatio`, `StartAngle/EndAngle` (рад) | `[CODE]` DxfExport |
 | `DwgSpline` | `Count` + `e[i]` → `Vector3D` | `[CODE]` |
 | `DwgWipeout` | `Count` + `e[i]` → `Vector2D` | `[CODE]` |
 | `DwgHatch` | Только метаданные паттерна; геометрия не разворачивается | `[CODE]` |
 | `DwgPoint` | Пропуск при экспорте | `[CODE]` |
-| `DwgDimension*` / `DwgCoordinateLeader` / `DwgLeader` | Комплексные сущности (дети) — экспортировать по дочерним примитивам | `[CODE]` ExportCommand.cs |
+| `DwgDimension*` / `DwgCoordinateLeader` / `DwgLeader` | Комплексные сущности (дети) — экспортировать по дочерним примитивам | `[CODE]` DxfExport |
 | `DwgTable` | `Topomatic.Tables.Export.dll`; `DefaultRowHeight` — **Int32**, не double | `[CODE]` |
 | `DwgViewport` | Пропуск (служебная) | `[CODE]` |
 
@@ -71,7 +71,7 @@ foreach (DwgLayout layout in drawing.Layouts)
 
 | API | Назначение | Статус |
 |---|---|---|
-| `color.ColorIndex` → int | Индекс ACI; `>= 0` — конкретный цвет | `[CODE]` EffectiveContext.cs |
+| `color.ColorIndex` → int | Индекс ACI; `>= 0` — конкретный цвет | `[CODE]` DxfExport |
 | `CadColor.ByLayerIndex` / `CadColor.ByBlockIndex` | Маркеры наследования (в DXF/DWG: 256 / 0) | `[CODE]` |
 | `color.ToIndexColor()` | RGB-цвет → ближайший ACI | `[CODE]` |
 | `color.Win32Color` → `System.Drawing.Color` | Истинный цвет (R/G/B) для TrueColor | `[CODE]` |
@@ -85,7 +85,7 @@ foreach (DwgLayout layout in drawing.Layouts)
 
 ## Матрица вставки
 
-`[CODE]` EntityWalker.cs / DxfExport SPEC §2.3:
+`[CODE]` DxfExport:
 
 ```
 DwgInsert.Matrix : Topomatic.Cad.Foundation.Matrix  (struct, Double M11..M44)
@@ -104,7 +104,7 @@ System.Numerics.Matrix4x4  (Float M11..M44)   → стек трансформа�
 | `block.AddCircle(...)` / `block.AddPolyline(...)`, `CadColor.ByBlock` | Примитивы блока | `[TUT]` |
 | `drawing.ActiveSpace.AddInsert(pos, scale, angle, name)` | Вставка блока | `[TUT]` |
 | `drawing.ActiveSpace.Add(primitive)` / `AddText(...)` | Добавление примитива/текста | `[TUT]` |
-| `drawing.Blocks.IsExists(name)` / `Blocks.Remove(name)` / `Blocks.Select(...)` | Таблица блоков: проверка, удаление, перебор | `[CODE]` robur-mcp/BlockTools.cs |
+| `drawing.Blocks.IsExists(name)` / `Blocks.Remove(name)` / `Blocks.Select(...)` | Таблица блоков: проверка, удаление, перебор | `[CODE]` robur-mcp |
 | `block.Entities` → коллекция сущностей; `block.Entities.Count` | Содержимое блока | `[CODE]` |
 | `block.Entities.CopyFrom(src, e => e.Layer = null, new ReferencesContext(drawing))` | Копирование сущностей **в** блок | `[CODE]` |
 | `drawing.ActiveSpace.Entities.CopyFrom(block.Entities, add, refCtx)` | Взрыв: копирование сущностей блока в пространство | `[CODE]` |
@@ -113,7 +113,7 @@ System.Numerics.Matrix4x4  (Float M11..M44)   → стек трансформа�
 | `insert.Block`, `insert.XScaleFactor / YScaleFactor / ZScaleFactor`, `insert.Rotation`, `insert.Position` | Свойства вставки | `[CODE]` |
 
 ⚠️ При взрыве трансформации каждой сущности могут бросать исключение — оборачивать и
-удалять сбойную сущность из `ActiveSpace` (см. `BlockTools.cs`, `ExplodeBlock`).
+удалять сбойную сущность из `ActiveSpace` (см. robur-mcp, `ExplodeBlock`).
 `ReferencesContext` (`Topomatic.Dwg`) нужен при копировании сущностей между блоками
 и пространством.
 
@@ -122,7 +122,7 @@ System.Numerics.Matrix4x4  (Float M11..M44)   → стек трансформа�
 | API | Назначение | Статус |
 |---|---|---|
 | `DwgPolyline`, `polyline.Prepare(drawing)` (**обязателен**), `.Linetype`, `BugleVector2D` | Полилиния | `[TUT]` |
-| `DwgPolyline.ConvertToPosArray(IList<Vector2D>)` | **Вершины полилинии** — свойства `Vertices` НЕТ (см. Dev Guide и DemLoader) | `[CODE]` DemLoader/AreaPicker.cs:72–74 |
+| `DwgPolyline.ConvertToPosArray(IList<Vector2D>)` | **Вершины полилинии** — свойства `Vertices` НЕТ (см. Dev Guide и DemLoader) | `[CODE]` DemLoader |
 
 ```csharp
 var positions = new List<Vector2D>();
@@ -130,7 +130,7 @@ picked.ConvertToPosArray(positions);    // picked: DwgPolyline
 ```
 
 Чтение вершин без ConvertToPosArray — перебор `foreach (BugleVector2D b in poly)`
-(`b.Vertex`, `b.Bugle`) — `[CODE]` PolylineConverter.cs.
+(`b.Vertex`, `b.Bugle`) — `[CODE]` DxfExport.
 
 ## Типы линий
 
@@ -190,7 +190,7 @@ var byBlock  = Color.ByBlock;                        // ACI = 0
 
 ### Ловушки API ACadSharp
 
-`[CODE]` DxfExport/SPEC §4.8 (исходники: https://github.com/DomCR/ACadSharp):
+`[CODE]` DxfExport (исходники: https://github.com/DomCR/ACadSharp):
 
 | # | Ловушка | Правило |
 |---|---|---|
@@ -277,7 +277,7 @@ Rectangular (1), разброс хорд > 2× → Freehand (0). Регистр�
 ## Расширенный словарь сущности (`DwgDictionary`)
 
 `DwgEntity` (через базу `DwgObject`) несёт произвольный строковый словарь — штатное
-место для прикладных меток (`guid`, `name`, `libUid` и т. п.). `[CODE]` robur-mcp/DwgUtils.cs
+место для прикладных меток (`guid`, `name`, `libUid` и т. п.). `[CODE]` robur-mcp
 
 | API | Назначение | Статус |
 |---|---|---|
@@ -308,7 +308,7 @@ if (e.HasExtensionDictionary && e.GetExtensionDictionary().GetString("guid", nul
 
 | API | Назначение | Статус |
 |---|---|---|
-| `drawing.Layers` → `DwgLayers`: `IsExists(name)`, `this[name]` → `DwgLayer`, `Add(name)` → `DwgLayer`, `Remove(name)`, `Select(...)` | Таблица слоёв | `[CODE]` robur-mcp/DwgTools.Layers.cs |
+| `drawing.Layers` → `DwgLayers`: `IsExists(name)`, `this[name]` → `DwgLayer`, `Add(name)` → `DwgLayer`, `Remove(name)`, `Select(...)` | Таблица слоёв | `[CODE]` robur-mcp |
 | `DwgLayer.Name`, `.Description`, `.Color` (`CadColor`), `.Color.ColorIndex`, `.Visible`, `.IsSystem` | Свойства слоя | `[CODE]`/`[DECOMP]` `Topomatic.Dwg.DwgLayer` |
 | `drawing.ActiveLayer` → `DwgLayer`, `drawing.ActiveLayer?.Name` | Активный слой | `[CODE]` |
 | `entity.Layer = drawing.Layers[name]` | Назначить слой сущности (проверив `IsExists`) | `[CODE]` |
@@ -324,7 +324,7 @@ if (e.HasExtensionDictionary && e.GetExtensionDictionary().GetString("guid", nul
 
 | API | Назначение | Статус |
 |---|---|---|
-| `HatchPatternManager.Current` → `HatchPatternManager`, `.GetDefinedPatterns()` → перечисление `HatchPattern` | Реестр паттернов | `[CODE]` robur-mcp/DwgTools.cs |
+| `HatchPatternManager.Current` → `HatchPatternManager`, `.GetDefinedPatterns()` → перечисление `HatchPattern` | Реестр паттернов | `[CODE]` robur-mcp |
 | `HatchPattern.Name`, `.Description`, `pattern.Select(line => ...)` | Описание паттерна; у линии — `Angle`, `StartX/StartY`, `DeltaX/DeltaY`, `LinetypePattern` | `[CODE]` |
 | `DwgHatch.PatternName`, `.PatternScale`, `.PatternAngle`, `.PatternType` (`AcPatternType`), `.HatchStyle` (`AcHatchStyle`) | Задание штриховки | `[CODE]` |
 
@@ -336,7 +336,7 @@ if (e.HasExtensionDictionary && e.GetExtensionDictionary().GetString("guid", nul
 
 | API | Назначение | Статус |
 |---|---|---|
-| `new DwgTable(drawing.TableStyles.Standard, rowCount, 1, columnCount, 1)` | Создать таблицу (`DwgTableStyle`) | `[CODE]` robur-mcp/DwgTools.Create.cs |
+| `new DwgTable(drawing.TableStyles.Standard, rowCount, 1, columnCount, 1)` | Создать таблицу (`DwgTableStyle`) | `[CODE]` robur-mcp |
 | `table.Prepare(drawing)` | Подготовить (обязательно) | `[CODE]` |
 | `table.UnMergeAll(true)` / `table.MergeCells(c1, r1, c2, r2)` | Объединение ячеек | `[CODE]` |
 | `table[row, column]` → ячейка; `.SourceText` | Текст ячейки | `[CODE]` |
@@ -348,4 +348,4 @@ if (e.HasExtensionDictionary && e.GetExtensionDictionary().GetString("guid", nul
 `DwgText`, `DwgCircle`, `DwgLine`, `DwgHatch`, `DwgInsert`,
 `DwgModel3DElement` с `Element is StaticSolidElement` (твердое тело) или
 `Element is ConstructedModel3dElement` (TLC), `DwgSmdxPointLandscaping` (посадка).
-Определение — цепочкой `is` (см. `DwgUtils.GetEntityType`).
+Определение — цепочкой `is` (см. robur-mcp, `GetEntityType`).

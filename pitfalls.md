@@ -4,7 +4,7 @@
 
 ## 1. Векторы и структуры — ПОЛЯ, не свойства
 
-`[DECOMP]` `Topomatic.Cad.Foundation.dll`, `[CODE]` Runoff/Robur/VectorRead.cs:
+`[DECOMP]` `Topomatic.Cad.Foundation.dll`, `[CODE]` Runoff:
 
 - `Vector2D.X/Y`, `Vector3D.X/Y/Z` — публичные **поля**. `GetProperty("X")` молча вернёт null,
   вектор выйдет нулевым, а `ToString()` выглядит здоровым (ловили дважды).
@@ -16,7 +16,7 @@
   при этом проходит. Всегда использовать хелпер `set_field` (`FieldInfo.SetValue` мутирует
   бокс — проверено). Симптомы: `Count=N`, но «обратно станция=0»; в keyed-коллекциях
   (RedProfile — ProjectProfile по станции) все узлы схлопываются в одну запись.
-  `[CODE]` прогоны M2.5/M3 RailModelImporter (`rim_py_*`, `_import_diagnostics.log`).
+  `[CODE]` прогоны M2.5/M3 RailModelImporter (лог импорта).
 - **Отображение имён в сводке: стройте от МОДЕЛИ, а не от JSON через `jstr`**
   (лог 00:12/00:20 M2.5/M3): данные в модели полные (`set_jstring` + `jstring_equals_prop`
   — `в модели=True`; read-back «первая=НТ … последняя=КТ»; `PlanVertexesValid=True`),
@@ -53,7 +53,7 @@
   (`3156.061957997823` и `3156.061958…`) сливаются в одну строку «3156.061958», импорт
   пишет её в модель, `IParameter.Item[3156.061957997823]` не находит точного совпадения
   → отдаёт **DefaultValue (−1, «лотка нет»)** в `.act` последней секции.
-  `[CODE]` `describe_parameter_table` (rail_json.py) — фикс `format_d`; импортёр не виноват
+  `[CODE]` фикс `format_d` (диагностика таблиц параметров); импортёр не виноват
   (ни `Add`, ни индексатор `this[double]` дубль станции не создают — общий `GetIndex`
   по пикету, лог: «строк в JSON=34, записано=34, контроль Count=33»).
 - **Политика A — whitelist пользовательских параметров (W1 и др.)**: при отсутствии
@@ -61,7 +61,7 @@
   из схемы) параметр НЕ создаётся «с нуля» руками, а заводится канонической
   фабрикой реестра:
   `AlignmentParameters.DefineParameterTable<T>(variable, caption, behaviorType,
-  defaultValue, overrideExisting, isSystem)` — `[DECOMP]` AlignmentParameters.cs:365.
+  defaultValue, overrideExisting, isSystem)` — `[DECOMP]` (реализация реестра параметров).
   Для `T=double` фабрика сама делает `new DoubleParameter(this, caption, behaviorType,
   defaultValue, isSystem)` и регистрирует в словаре реестра (+ Changed); дубликат не
   перезаписывает при `overrideExisting=false`. Ровно так же работает штатный Add-хелпер
@@ -96,8 +96,8 @@
   `jstring_equals_prop(...)` (сравнение `.Equals` целиком в .NET, наружу bool).
   Диагностика порчи — `probe_jstr(tok, expected)`: только надёжные int/bool
   (`JToken.DeepEquals` — .NET-истина; `len` raw vs после `unicode()`).
-  `[CODE]` M2.5/M3 RailModelImporter (`rim_reflection.py`/`rim_commands.py`), `[TEST]`
-  /tmp jstest (plan.json c BOM — чистый C# возвращает полные строки).
+  `[CODE]` M2.5/M3 RailModelImporter, `[TEST]`
+  C#-зонд (JSON c BOM — чистый C# возвращает полные строки).
 
 ## 2. Undo/redo — обязателен для всех изменений моделей
 
@@ -112,12 +112,12 @@ try { … } finally { model.EndUpdate(); }
 ## 3. `CadCursors.GetPoint` — две сигнатуры
 
 Обе — `[TUT]`: bool-вариант — tutorial3/4/7/8/9/10/11, TutorialEditAlignment;
-`GetPointResult` (с `params string[] options`) — TutorialEditSurfaceElements/Module.cs:70.
+`GetPointResult` (с `params string[] options`) — TutorialEditSurfaceElements.
 Плюс `[CODE]` Runoff/DemLoader — bool-вариант (false на отмену). Проверяйте, какую вызываете.
 
 ## 4. ЦММ: создание с нуля
 
-`[CODE]` DemLoader/TerrainWriter.cs:
+`[CODE]` DemLoader:
 - `node.Model` остаётся `null` после `LockWrite()` до вызова `LockRead()` — без исключения.
 - `surface.Points.Add(new SurfacePoint(...))` начинается с **проверки лицензии** — без неё
   «успешно» молча ничего не делает.
@@ -126,7 +126,7 @@ try { … } finally { model.EndUpdate(); }
 
 ## 5. Профиль земли — не `??`, а try/catch
 
-`[CODE]` Runoff/RailDitchReader.cs: каждое из `StaticEg`/`DynamicEg`/`EgProfile` может кинуть —
+`[CODE]` Runoff: каждое из `StaticEg`/`DynamicEg`/`EgProfile` может кинуть —
 буквальный `t.StaticEg ?? t.DynamicEg ?? t.EgProfile` упадёт. Паттерн `SafeGroundProfile`.
 
 ## 6. Проект и модель

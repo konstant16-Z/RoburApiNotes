@@ -6,7 +6,7 @@
 
 **Статус:** `[REFL]` (asmread, метаданные SDK **16.0.62.12**) + `[DECOMP]` (ilspycmd v11.0.0.9375)
 для публичных расширений доступа.
-Декомпиляции — в `Tools/Decomp/Topomatic.Alg.LandAllotment.Layers.*.cs`.
+Декомпиляции — локальные (см. статусы `[DECOMP]`/`[REFL]`).
 
 Секции доступности объектов (см. `ApiNotes/plugin.md`) не подтверждены — у подсистемы
 собственные окна (`LandAllotmentConsts.LandAllotmentWindow`), сопоставление с
@@ -33,7 +33,7 @@
 
 ### Способ 1 — публичное расширение `[DECOMP]`
 
-`Topomatic.Alg.LandAllotment.Layers.AlignmentExtensions` (`Tools/Decomp/Topomatic.Alg.LandAllotment.Layers.AlignmentExtensions.cs`):
+`Topomatic.Alg.LandAllotment.Layers.AlignmentExtensions` `[DECOMP]`:
 
 ```csharp
 using Topomatic.Alg.LandAllotment.Layers;
@@ -169,8 +169,7 @@ UndoObject
 
 ### Расширения слоёв `[DECOMP]`
 
-`Topomatic.Alg.LandAllotment.Layers.LandAllotmentStyleExtensions`
-(`Tools/Decomp/Topomatic.Alg.LandAllotment.Layers.LandAllotmentStyleExtensions.cs`):
+`Topomatic.Alg.LandAllotment.Layers.LandAllotmentStyleExtensions` `[DECOMP]`:
 
 ```csharp
 using Topomatic.Alg.LandAllotment.Layers;

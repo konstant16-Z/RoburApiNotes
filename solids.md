@@ -1,9 +1,9 @@
 # ApiNotes — Твёрдые тела и Brep (Topomatic.Cad.Foundation.Brep / Visualization)
 
-Источник — боевой плагин `[CODE]` `robur-mcp/tool_bridge/Tools/SolidTools.cs`
-(публичный `github.com/topomatic-code/robur-mcp`) и `DwgUtils.cs`. Полный список
+Источник — боевой плагин `[CODE]` robur-mcp (публичный репозиторий
+`github.com/topomatic-code/robur-mcp`). Полный список
 методов `Brep.Tools` подтверждён монодизассемблированием
-`Development/Out/Bin/Topomatic.Cad.Foundation.dll` (16.0.62.x); типы обёрток —
+`Topomatic.Cad.Foundation.dll` (16.0.62.x); типы обёрток —
 `Topomatic.Visualization.dll` / `Topomatic.Visualization.Runtime.dll`.
 
 ## Сборки и типы
@@ -113,7 +113,7 @@ var contours = clip.Faces.SelectMany(f => f.Loops.Select(l => l.GetPolygon3d()))
 ```
 
 ⚠️ `Brep.Tools.Clip` возвращает **`Shell`**, а не отдельный результат с полями,
-и принимает `inside` третьим аргументом. Источник: `SolidTools.cs` (`Section`).
+и принимает `inside` третьим аргументом. Источник: robur-mcp (`Section`).
 
 ## Ловушки
 

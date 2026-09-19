@@ -2,7 +2,7 @@
 
 ## Векторы — ПОЛЯ, не свойства (ловушка №1)
 
-`[DECOMP]` `Topomatic.Cad.Foundation.dll` + `[CODE]` Runoff/Robur/VectorRead.cs:
+`[DECOMP]` `Topomatic.Cad.Foundation.dll` + `[CODE]` Runoff:
 
 - `Vector2D.X/Y`, `Vector3D.X/Y/Z` — **публичные поля**, НЕ свойства.
 - `GetProperty("X")` молча возвращает null → вектор «нулевой», а `ToString()` выглядит здоровым.
@@ -13,7 +13,7 @@
 |---|---|---|
 | `Vector2D`, `Vector3D`, `Vector3D.Pos`, `vertex.Pos` | Точки; `.Pos` — плоская проекция | `[TUT]` |
 | `new Vector2D(x, y)` | Конструктор точки плана | `[DECOMP]` |
-| `Vector2D.Empty` | Пустой вектор (для out-результатов по умолчанию) | `[CODE]` Runoff/PlanProjector.cs |
+| `Vector2D.Empty` | Пустой вектор (для out-результатов по умолчанию) | `[CODE]` Runoff |
 
 ## Геометрические операции
 
@@ -26,11 +26,11 @@
 | `Polyline3D.Offset(double, list)` | Эквидистанта | `[TUT]` |
 | `CadLibrary.PosToPolylineStaOffset(poly, pt, out off, out sta)` | Ста-офсет точки на линии | `[TUT]` |
 | `CompoundLine.StaOffsetToPos(station, offset, out Vector2D pos)` / `PosToStaOffset(pt, out sta, out off)` | Пикетаж ↔ координаты по `alignment.Plan.CompoundLine` | `[TUT]`+`[CODE]` |
-| `CompoundLine.Length` | Длина оси трассы | `[CODE]` Runoff/DitchReader.cs:59 |
+| `CompoundLine.Length` | Длина оси трассы | `[CODE]` Runoff |
 
 ## Рамки и зум
 
-`[CODE]` Runoff/RunoffPlugin.cs:144–171:
+`[CODE]` Runoff:
 
 ```csharp
 // BoundingBox2D не имеет пустого конструктора и Min/Max — собираем точки списком:

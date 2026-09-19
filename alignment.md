@@ -4,7 +4,7 @@
 
 `[DECOMP]` `Topomatic.Alg.dll` (`Topomatic.Alg.Alignment`): **все** нужные свойства
 объявлены на базовом `Alignment`, а не на `RoadAlignment` → одинаково работают для
-автодороги (`RoadAlignment`) и ж/д (`RailAlignment`). `[CODE]` Runoff/Robur/RoadAccess.cs
+автодороги (`RoadAlignment`) и ж/д (`RailAlignment`). `[CODE]` Runoff
 («Берём БАЗОВЫЙ Alignment»; на `Topomatic.Alg.Rail` ссылку не добавляют, тип пути
 определяют по имени типа: `Road is RoadAlignment`).
 
@@ -119,7 +119,7 @@ bool ok = PlanLineSolver.PlanVertexesValid(plan);
 - `vertex.BeginTransaction()/Commit()/Rollback()` — изменение вершины с валидацией.
 
 Полные доказательства из IL (сигнатуры `Add`/`Insert`, свойства `Vertex`, семантика
-`Vertex.Add`) — в `RailModelImporter/SPEC-plan-write-api.md`.
+`Vertex.Add`) — задокументированы отдельно (write-API плана).
 
 ## Профили (Transitions / Transition)
 
@@ -138,7 +138,7 @@ bool ok = PlanLineSolver.PlanVertexesValid(plan);
 | `Split/CanSplit`, `Join/CanJoin`, `CopyFrom`, `EqualsWith` | Служебные операции | `[DECOMP]` |
 | `Gaps`, `FixedPoints`, `UserProfiles`, `Underlay` | Подобъекты | `[DECOMP]` |
 
-**Профиль земли — не `??`, а try/catch** `[CODE]` Runoff/RailDitchReader.cs (SafeGroundProfile):
+**Профиль земли — не `??`, а try/catch** `[CODE]` Runoff:
 ```csharp
 try { if (t.StaticEg != null) return t.StaticEg; } catch { }
 try { if (t.DynamicEg != null) return t.DynamicEg; } catch { }
@@ -260,7 +260,7 @@ BackgroundIndex=67108864 (0x04000000)
 недостаточно — поле `nodes` это JObject, а не JArray, и `jarr` молча возвращал `None`
 (элемент создавался, узлы пропадали: переэкспорт давал `nodes: 0`).
 
-**Round-trip подтверждён** (Export_Rail1 → импорт → Export_Rail2, 2026-09-12): у обоих
+**Round-trip подтверждён** (экспорт → импорт → повторный экспорт, 2026-09-12): у обоих
 профилей «По внутренней бровке водоотвода» (transition_1/2) полное имя без потери символа,
 `color=2.0`, `showDifference=True` и узлы 33→33 с нулём расхождений (station/elevation/code
 совпадают с исходником до 1e-10; контроль станций первого/последнего узла — в
@@ -292,7 +292,7 @@ ilspycmd -t "Topomatic.Cad.Foundation.CadColor"   Topomatic.Cad.Foundation.dll
 | `context.FindContour(code)`, `GetEgContour()`, `GetRedLineContour()`, `.AsVectorList()` | Контуры поперечника `[TUT]` |
 | `new PolygonOperation().Intersection(eg, red)` | Пересечение контуров `[TUT]` |
 
-Пример станций реальных поперечников `[CODE]` Runoff/DitchReader.cs:69:
+Пример станций реальных поперечников `[CODE]` Runoff:
 ```csharp
 var sections = road.Corridor.Sections;
 for (int i = 0; i < sections.Count; i++)
@@ -311,7 +311,7 @@ for (int i = 0; i < sections.Count; i++)
 - Условный пикетаж (ПК+плюс) вычисляет движок из таблицы `axis.Stationing`
   (импортируется/экспортируется отдельно — «Станционирование»);
 - Координаты оси поперечника (X, Y плана) движок получает из плана:
-  `Runoff/Robur/PlanProjector.cs` `StaOffsetToPos` («пикет→координаты»); на секции
+  `StaOffsetToPos` из Runoff («пикет→координаты»); на секции
   они не хранятся. Для MCP-сервера/экспорта их надо вычислять по плану
   (`Plan.CompoundLine`/вершинам плана), а не читать из `Section`.
 
@@ -364,8 +364,8 @@ ActConstruction)` → `Construction`** (регистрация рецепта), 
 `Contains(uint)`/`ContainsConstruction`, `Remove(uint)`, `CloneAndReplace`, константа
 `EmptyConstructionId = 0`.
 
-**Id конструкций — тот же механизм, что у Gridiron** `[DECOMP]` (`Tools/Decomp/
-Topomatic.Alg.Crs.ConstructionDictionary.cs`):
+**Id конструкций — тот же механизм, что у Gridiron** `[DECOMP]` (реализация реестра
+конструкций):
 
 | Операция | Поведение счётчика ключей |
 |---|---|
@@ -410,13 +410,13 @@ ilspycmd -t "Topomatic.Alg.Crs.ConstructionDictionary" Topomatic.Alg.dll
 - Вызов через `ActConstructionManager.Instance.Load(string name)` → `ActConstruction`:
   открывает `XmlReader.Create(String.Format(шаблон, Application.StartupPath, name))` и парсит
   через `LoadConstruction`; кэширует в `Dictionary<string, ActConstruction>`.
-- Корень `<ActConstruction>` и все блоки — см. `Dop/SPEC-export-construction.md` и эталон
-  `Dop/Путь 1_6.act`. **Ловушка**: блоки Cl/Eg (AlignmentCrossing/ExistingGround) и Variables
+- Корень `<ActConstruction>` и все блоки — см. описание экспорта конструкций и эталонный
+  тестовый файл `.act`. **Ловушка**: блоки Cl/Eg (AlignmentCrossing/ExistingGround) и Variables
   существуют только в XML `.act` — публичного API записи их в `ActConstruction` НЕТ (parse-only);
   рецепт, собранный вручную через фабрики `ActComponent.Create*`, их не содержит → контекст
   не резолвит имена `Cl`/`Eg`/переменные («Имя не найдено Cl/Eg» в BuildStatus).
 - **Подтверждение round-trip (`[CODE]`, пользователь 2026-09-15)**: `.act` нашего экспортёра
-  (`Export_Rail1\Путь 1.railx\model\crosssections\`) байт-в-байт совпадают со штатными
+  (`model/crosssections/` в тестовом `.railx`) байт-в-байт совпадают со штатными
   (тот же AST в `<Components>` + `<ExistingGround>/<AlignmentCrossing>/<Variables>`) и
   корректно импортируются штатными средствами — при такой модели потерь данных нет.
   Импортёр группы конструкций использует `LoadConstruction(reader, act)` из `.act` первой
@@ -471,8 +471,7 @@ bool, ActConstruction). `ConstructionDictionary : UpdatableObject` —
 В экспорте `section_N.json` `components` = **built Map AST** (экспортёр собирает
 `.act` из Map, не из рецепта): для конструкции id=2 — 13 элементов (5
 `ActComponent` + 2 `ActSimpleRay` + 2 `ActRayContainerNode` + 2 `ActSimpleContour`
-+ 2 `ActSectVolume`), для id=3 — 7 (5 + 2 `ActSimpleRay`). Эталон полной секции
-`Dop/Путь 1_6.act` показывает те же 13 в `<Components>` явно (лучи
++ 2 `ActSectVolume`), для id=3 — 7 (5 + 2 `ActSimpleRay`). Эталон полной секции (тестовый файл `.act`) показывает те же 13 в `<Components>` явно (лучи
 `<Ray><Initializator><Arg Name="node"/"x"/"y">`, узлы `<Node … ray/container/index>`,
 контуры `<Contour><Property Name="Code">/Nodes`, объёмы `<Volume> contour1/contour2/
 firstUp + Property Code`). **Вся совокупность 13 элементов — РЕЦЕПТ**
@@ -502,7 +501,7 @@ Cl/Eg» в BuildStatus). Подтверждено пользователем: `.
 
 ## SelectedSections — именованные наборы станций
 
-`[DECOMP]` `Topomatic.Alg.Crs` + `[CODE]` ModelDesk/RoadModelAccess.cs (рефлексия SDK 16.0.60.11):
+`[DECOMP]` `Topomatic.Alg.Crs` + `[CODE]` ModelDesk (рефлексия SDK 16.0.60.11):
 
 - `alignment.SelectedSections` → `SelectedSectionsCollection` (`UpdatableObject`) — **отдельное**
   свойство `Alignment`, НЕ часть `Corridor.Sections` (два независимых объекта).
@@ -530,7 +529,7 @@ finally { coll.EndUpdate(); }
 `[DECOMP]` `Topomatic.Alg.Parameters.AlignmentParameters` — generic-словарь
 (`IDictionary<string, T>`): `Keys`, `Values`, `this[string]`, `TryGetValue`, `ContainsKey`, `Add`, `Remove`.
 
-`[CODE]` Runoff/DitchReader.cs — один вызов читает всё по поперечнику, CRS-контекст не нужен:
+`[CODE]` Runoff — один вызов читает всё по поперечнику, CRS-контекст не нужен:
 ```csharp
 var p = road.Parameters.GetStationParams<object>(station);
 // ключи: "LEFT_FLAGS"/"RIGHT_FLAGS", "DYNAMIC_LEFT_HK"/"DYNAMIC_RIGHT_HK",
@@ -543,7 +542,7 @@ bool hasDitch = HasFlag(p, "LEFT_FLAGS");        // бит 2 = SLOPE_FLAG_USE_DI
 
 ## Трубы (Pipes)
 
-`[CODE]` Runoff/PipeMatcher.cs, CulvertAccess.cs:
+`[CODE]` Runoff:
 
 - `alignment.Pipes` → `PipesCollection`: `Count` + `this[int]`.
 - На реальном проекте `Pipes` часто **пуст** (проверено прогоном 2026-08-09). Трубы `.clv`
@@ -574,7 +573,7 @@ bool hasDitch = HasFlag(p, "LEFT_FLAGS");        // бит 2 = SLOPE_FLAG_USE_DI
   оси, другой член `Alignment.StartStation`).
 - **Обе ветки подтверждены живым round-trip `[TEST]` (2026-09-11)**:
   простая (`StartStation=1000.0`, секторов нет) и явные сектора
-  (`Export_Rail2/3.railx`: `StartStation=1516.17`, 4 сектора, в т.ч. широкий
+  (`тестовый файл `.railx`: `StartStation=1516.17`, 4 сектора, в т.ч. широкий
   `4+0.0 – 5+0.0`) — после импорта повторный экспорт байт-в-байт
   (md5 `43f2bfca…`). Замечание: экспортёр пишет `StartKm/EndKm` в JSON как
   **double** (`1.0`), импортёр конвертирует `int()` в поля int32.
@@ -658,7 +657,7 @@ public void Assign(AlgExtendedKilometres kilometres)
 
 ## Станционирование (`Stationing` / `AlgStationing`)
 
-`[DECOMP]` + `[LOG]` прогон 2026-09-12 (`_log_m5_api`, `3.railx`):
+`[DECOMP]` + `[LOG]` прогон 2026-09-12 (`_log_m5_api`, тестовый `.railx`):
 
 - `axis.Stationing` → `Topomatic.Alg.Stationing.AlgStationing` (31 сектор в эталоне).
 - Методы объекта (фактический ↔ условный пикетаж, **конвертеры для MCP-сервера**):
@@ -697,15 +696,15 @@ public void Assign(AlgExtendedKilometres kilometres)
   элемент, а создаёт дефолтную запись `TrainSpeed(0,0,0,0)`, чтобы `Count`
   коллекции не обнулялся (эталон: `count:1, items:[{}]`). Частично заданные
   элементы (без всех 4 полей) по-прежнему пропускаются с пометкой в stats.
-- **C#-экспортёр (фикс 2026-09-17)**: `RailJson.cs` выгружал скорости через
+- **C#-экспортёр (фикс 2026-09-17)**: скорости выгружались через
   `BuildCollectionJson` → `BuildObjectDict` (свойства) — тот же баг `{}`.
   Добавлен `BuildTrainSpeeds` (чтение полей `TryAddField`, зеркало
-  `rail_json.build_train_speeds`).
+  `build_train_speeds`).
 
 ## Условные знаки (`ConventionalSigns`) — write-API
 
 `[DECOMP]` ilspycmd `Topomatic.Alg.dll` (namespace `Topomatic.Alg.Signs`),
-`[CODE]` импорт `_write_signs` (RailModelImporter, `rim_py_import_extra`):
+`[CODE]` импорт `_write_signs` (RailModelImporter):
 
 - `axis.Signs` → `ConventionalSigns : UpdatableObject, IList<ConventionalSign>,
   IEnumerable<ConventionalSign>, IStgSerializable, IOwned`; `ctor(object owner)`.
@@ -725,8 +724,8 @@ public void Assign(AlgExtendedKilometres kilometres)
 
 ## Рассекаемые поверхности (списки путей) — write-API
 
-`[CODE]` импорт `_write_cutting_surfaces` (RailModelImporter, `rim_py_import_extra`),
-экспорт `build_string_list` (rail_json.py → `model/alignment/cutting_surfaces.json`):
+`[CODE]` импорт `_write_cutting_surfaces` (RailModelImporter),
+экспорт `build_string_list` (→ `model/alignment/cutting_surfaces.json`):
 
 - 4 свойства базового `Alignment` — `IList<string>` (`TransactableList<String>
   Topomatic.FoundationClasses.Undo`): `EgSurfaceRelativePaths` (пути поверхности
@@ -735,18 +734,18 @@ public void Assign(AlgExtendedKilometres kilometres)
   `AlignmentIntersectionsRelativePaths` (пересечения с другими трассами).
 - **Ловушка экспорта**: generic `build_object_dict` для `List<string>` выгружает
   только `Count`/`Capacity` (строки лежат в индексаторе `Item[int]`, не в свойствах)
-  → содержимое путей терялось (в round-trip Export_Rail3→Rail4 видно: у
+  → содержимое путей терялось (в round-trip повторного экспорта видно: у
   `SectionCuttingSurfacesRelativePaths` Count вырос 0→1, `AlignmentIntersections` 0→2,
   а самих путей в JSON нет). Фикс — `build_string_list`: итерация `Item[int]`.
 - **Запись**: `Clear()` + `Add(строка)` внутри `axis.BeginUpdate()/EndUpdate()`
-  (ось внутри `rim_py_import_extra` уже обёрнута). Строка читается целиком в .NET —
+  (ось внутри импортёра-скрипта уже обёрнута). Строка читается целиком в .NET —
   `tok.ToObject(String)` — и уходит в `Add` как `System.String` (канон
   `set_jstring`/`set_typed_prop`: строки не пересекают Python-маршал).
 
 ## Параметры-таблицы (`IParameterTable`) — write-API
 
 `[DECOMP]` ilspycmd `Topomatic.Alg.dll`, `[CODE]` импорт `_write_parameters_table`
-(RailModelImporter, `rim_py_import_extra`):
+(RailModelImporter):
 
 - `AlignmentParameters.GetTableParameters()` → `IEnumerable<KeyValuePair<string, IParameter>>`.
 - Табличные параметры (`DoubleParameter : ParameterTable<double>, IParameter<double>,
@@ -769,7 +768,7 @@ public void Assign(AlgExtendedKilometres kilometres)
   Формат: **два файла** — `parameters_registry.json` (СИСТЕМНЫЕ табличные +
   computed + `stationValues`-диагностика) и `parameters_user.json`
   (ПОЛЬЗОВАТЕЛЬСКИЕ табличные, `isSystem=false`; файла нет, если таких нет).
-  Разделяет `rail_json.split_parameters_dump` (экспортёр `dump_parameters` пишет
+  Разделяет `split_parameters_dump` (экспортёр `dump_parameters` пишет
   полный реестр; вызов в точке записи файлов). Импортёр читает оба файла одним
   хелпером `_write_param_descriptors`, из user-файла отсутствующие создаются
   всегда; легаси-формат (одного файла) поддерживается (отсутствующие
@@ -785,7 +784,7 @@ public void Assign(AlgExtendedKilometres kilometres)
 
 - `AlignmentParameters.DefineParameterTable<T>(string variable, string caption,
   BehaviorType behaviorType, T defaultValue, bool overrideExisting, bool isSystem)`
-  → `IParameter<T>` — `[DECOMP]` AlignmentParameters.cs:365. Для `T=double` создаёт
+  → `IParameter<T>` — `[DECOMP]` (реализация реестра параметров). Для `T=double` создаёт
   `new DoubleParameter(this, caption, behaviorType, Convert.ToDouble(defaultValue),
   isSystem)` и сам регистрирует `dictionary[variable] = value` (+ Changed);
   при `TryGetValue(variable)` и `!overrideExisting` возвращает существующий.
@@ -808,7 +807,7 @@ public void Assign(AlgExtendedKilometres kilometres)
   параметрам**: у существующих системных параметров импортёр BehaviorType не
   трогает (их флаг на платформе). Экспортёр пишет `behaviorType` для всех
   табличных дескрипторов (format_value enum → «BehaviorType.Interpolate»,
-  rail_json.describe_parameter_pairs, только при `table`).
+  `describe_parameter_pairs`, только при `table`).
 - Различение системный/пользовательский — свойство `IParameterTable.IsSystem`
   (`[DECOMP]`; при загрузке stg не-системные добавляются в ту же коллекцию
   `GetTableParameters()`, строки 670+; системные заводит платформа). Отдельной
@@ -819,7 +818,7 @@ public void Assign(AlgExtendedKilometres kilometres)
   любые отсутствующие в новом формате (`parameters_user.json` существует →
   реестр системный, создания из него нет; создание — только из user-файла и
   легаси-registry).
-- Факт по эталону `Export_Rail3`: W1 — **единственная пользовательская**
+- Факт по эталонному экспорту: W1 — **единственная пользовательская**
   табличная переменная (`isSystem=false`, `BehaviorType.Discrete`, 3 строки
   0→0.75 / 1150.5→1 / 1269.64→0.75, caption «Лотки»); системные —
   `_LDW1/_RDW1` Default, `TRAY_HEIGHT_RIGHT1` Discrete, E/LE/RE/O/LO/RO/B/LB/RB
@@ -935,7 +934,7 @@ double EndSta, bool FromEdge, TrayCollection)`; свойства соответ�
 → AfterInsert → пересчёт `_lengths`). Пока `TrayTable` пуста, **любой `Add` падает
 `IndexOutOfRangeException`** («Индекс за пределами диапазона»). Поэтому импортёр
 пишет `tray_table.json` **до** `tray_layout.json` (см. `_write_tray_table`/
-`_write_tray_layout` в `rim_commands.py`), плюс защитная проверка `Count>0` с
+`_write_tray_layout` в скрипте импортёра), плюс защитная проверка `Count>0` с
 понятной ошибкой вместо исключения.
 
 ### TrayTable / Tray (типы лотков)
@@ -948,7 +947,7 @@ double EndSta, bool FromEdge, TrayCollection)`; свойства соответ�
 
 `[DECOMP]` ilspycmd `Topomatic.Alg.Rail.dll`, `[CODE]` импорт
 `_write_dynamic_surface`/`_write_reconstruction`/`_write_surface_clearence`
-(RailModelImporter, `rim_py_import_extra`):
+(RailModelImporter):
 
 - `RailAlignment.DynamicSurface` (bool), `DynamicProjectSurfaceUseFactor` (bool),
   `DynamicProjectSurfaceUserFactorValue` (double) — собственные TransactableField-
@@ -972,7 +971,7 @@ double EndSta, bool FromEdge, TrayCollection)`; свойства соответ�
 экспорт `build_permanent_way*` (RailModelExporter), импорт
 `_write_permanent_way[_sections]`/`_pw_make_scalar_row` (RailModelImporter).
 **Статус: подтверждено** round-trip 16.50-экспорт → импорт в новую Robur →
-повторный экспорт (`Dop/Export_Rail6` → import → `Development/Out/Bin/Export_Rail7`,
+повторный экспорт (экспорт → импорт → повторный экспорт,
 значения побайтово совпали: эпюра 1600 шпал, балласт 0.45/0.37).
 
 ### Новая модель (Bin, 16.0.62.x) — таблицы
@@ -1026,7 +1025,7 @@ JSON-блок `{ type, model:"sections", count, items[] }` — в `permanent_way
 
 - Тип элемента таблицы: `element_type_of` ИЛИ индексер `Item[int]` — у пустой
   таблицы `element_type_of` вернёт None (нет первого элемента), индексер обязателен.
-- Все четыре коллекции — перезапись (Clear), эталон из `Путь 1.railx`:
+- Все четыре коллекции — перезапись (Clear), эталон из тестового файла `.railx`:
   VirageTable 1 запись («ВУ1», R=600), DrainTable 2 записи (левый ву 1, правый лоток 2),
   TrayLayoutTable 1 участок (переход 2, ПК 0–3156.06, от бровки), TrayTable 4 типа
   (Длина 1.5 × Высота 0.75/1.0/1.25/1.5).

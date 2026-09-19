@@ -1,11 +1,10 @@
 # ApiNotes — Скрипты в Robur: IronPython
 
-**Текущий движок — IronPython 2.6.1008.2**, поставляется вместе с Robur (файлы в
-`Development/Out/Bin`). **TLC** (аналог лиспа для мелкой автоматизации) — отдельный
-скриптовый язык Robur, здесь НЕ используется.
+**Текущий движок — IronPython 2.6.1008.2**, поставляется вместе с Robur. **TLC** (аналог
+лиспа для мелкой автоматизации) — отдельный скриптовый язык Robur, здесь НЕ используется.
 
 Статусы: `[DECOMP]` — метаданные/декомпиляция сборок; `[CODE]` — RailModelExporter,
-New_export/DxfExport, штатные скрипты `Development/Out/Bin/Lib`.
+DxfExport, штатные скрипты Robur.
 
 ## Сборки движка
 
@@ -27,7 +26,7 @@ New_export/DxfExport, штатные скрипты `Development/Out/Bin/Lib`.
 }
 ```
 
-Контракт загрузчика (по `surface_mapsigns.py` + строкам `Topomatic.Scripting.dll`):
+Контракт загрузчика (по штатному Python-плагину + строкам `Topomatic.Scripting.dll`):
 
 1. файл выполняется движком IronPython;
 2. обязан быть модульный вызов `initialize()`, возвращающий **экземпляр** модуля плагина;
@@ -52,7 +51,7 @@ def initialize():
 
 ## `Lib/robur.py` — штатный Python-API плагинов
 
-`Development/Out/Bin/Lib/robur.py` (кодировка **cp1251**):
+Штатный скрипт Robur `Lib/robur.py` (кодировка **cp1251**):
 
 | Элемент | Назначение |
 |---|---|
@@ -67,9 +66,9 @@ def initialize():
 
 ## Способ 2: C#-модуль + мост PyBridge (горячая перезагрузка)
 
-Паттерн RailModelExporter.PyBridge / New_export DxfExport (`[CODE]`): логика, которую
-нужно менять без пересборки DLL, выносится в `.py` в подпапку `py` каталога приложения
-(`Development\Out\Bin\py\`); C# вызывает именованные функции скрипта:
+Паттерн RailModelExporter.PyBridge / DxfExport (`[CODE]`): логика, которую
+нужно менять без пересборки DLL, выносится в `.py` в подпапку `py` каталога приложения;
+C# вызывает именованные функции скрипта:
 
 ```csharp
 var engine = Python.CreateEngine();                       // IronPython.Hosting
@@ -80,7 +79,7 @@ var fn = scope.GetVariable<Func<object, object>>("dxf_map_entity");   // хен�
 fn(ctx);                                                  // ровно один аргумент — DTO
 ```
 
-Правила моста (по PyBridge.cs):
+Правила моста:
 
 - **Горячая перезагрузка**: перед каждым вызовом сравнивается
   `File.GetLastWriteTimeUtc(path)` с сохранённым mtime; изменённые файлы выполняются
@@ -96,7 +95,7 @@ fn(ctx);                                                  // ровно один
 - Принудительная перезагрузка: команда модуля `export_py_reload` + пункт меню
   (DxfExport) — «Скрипты Python перезагружены.» / текст ошибки.
 
-Контракт обработчиков `dxf_export.py` (`[CODE]` New_export/src/DxfExport/PyScripts):
+Контракт обработчиков скрипта экспорта (`[CODE]` DxfExport):
 
 ```python
 # -*- coding: utf-8 -*-
@@ -118,7 +117,7 @@ def dxf_map_linetype(dto):
 
 ## Interop с .NET-сборками из IronPython
 
-Штатные скрипты `Development/Out/Bin/Lib/*.py` (`[CODE]`):
+Штатные скрипты Robur (`Lib`, `[CODE]`):
 
 ```python
 import clr

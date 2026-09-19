@@ -1,9 +1,9 @@
 # ApiNotes — Водопропускные трубы (Topomatic.Culverts)
 
 Единственный источник — боевой плагин `[CODE]`
-`robur-mcp/tool_bridge/Tools/CulvertTools.cs` (публичный репозиторий
+robur-mcp (публичный репозиторий
 `github.com/topomatic-code/robur-mcp`, .NET Framework 4.8). Имена типов и сигнатуры
-подтверждены монодизассемблированием `Development/Out/Bin/Topomatic.Culverts.dll`
+подтверждены монодизассемблированием `Topomatic.Culverts.dll`
 (16.0.62.x) и `Topomatic.Tables.dll`.
 
 ## Сборки и пространства имён
