@@ -128,6 +128,28 @@ if (dataset.Count > 0)
 | `MONOLITHIC_STREN_VOLUMES`, `P1_STREN_VOLUMES`, `GABION_STREN_VOLUMES`, `ROCK_STREN_VOLUMES` | объёмы по типам укрепления |
 | `CUSTOM_STREN_COMBINED_VOLUMES`, `CUSTOM_STREN_DETAILED_VOLUMES`, `CUSTOM_STREN_TOTAL_VOLUMES` | пользовательские укрепления |
 
+## Write-мост «Труба на плане» (`ICulvertContainer` ↔ `road.md` §«План»)
+
+`[TUT]`/`[DECOMP]`: водопропускная труба (`Culvert`, см. §«Модель трубы» выше) —
+**НЕ** таблица-интенсивность M4 и **НЕ** отдельная write-модель: это обычный
+write-элемент плана, ставится паттерном «труба на пикете» (пикет+смещение+угол,
+см. `road.md` §«План» и §«Спецификации» выше — паттерн «муфта на пикете»).
+Контейнер берётся `ICulvertContainer` из модели на пикете плана (`[CODE]`, см.
+§«Доступ к модели трубы»); НЕ путать с `SheetContext` (ведомости) и НЕ с
+`Construction` (спецификации, §«Спецификации»).
+
+| API | Роль | Статус |
+|---|---|---|
+| `ICulvertContainer` | контейнер трубы на пикете плана | `[CODE]` |
+| `Culvert` / `CulvertData` | write-элемент трубы на пикете | `[DECOMP]` / `[CODE]` |
+| `SheetContext` | ведомости (НЕ write-модель) | `[CODE]` |
+| `Construction.CreateSpecificationDataset(...)` | спецификация (НЕ write-модель) | `[CODE]` |
+
+Ловушка (уровень II): попытка ставить трубу как таблицу M4 (см. `culverts.md`
+§«Ловушки» №1) ломает write-паттерн — труба остаётся write-элементом плана,
+а ведомости строятся уже ПОСЛЕ расстановки, как в `road.md` §«Ведомости».
+
+---
 ## Ловушки
 
 - `ICulvertContainer` возвращает `PluginCoreOps.LockReadContainer`, а не приведение
