@@ -56,7 +56,9 @@
 | `model-editor.md` | Собственная модель/редактор, Stg-сериализация, дерево проекта |
 | `cadview.md` | Видовой экран: слой, ввод, выбор, грипы, динамическая отрисовка |
 | `geometry.md` | Векторы, геометрия, форматирование, рамки |
-| `alignment.md` | Трассы: план, профили, поперечники, параметры, трубы, километраж, вираж/дренаж/лотки (M4), ВСП (два формата: таблицы Bin vs поучастковый 16.50 + эпюра шпал/толщина балласта) |
+| `alignment.md` | Трассы — **общее** (`Topomatic.Alg.dll`): базовый `Alignment`, план, профили, коридор/секции, parameters-таблицы, трубы, километраж, станционирование, условные знаки, рассекаемые поверхности. Специфика ж/д — в `rail.md`, дороги — в `road.md` |
+| `rail.md` | Ж/д трасса (`Topomatic.Alg.Rail.dll`): TrainSpeeds, M4 (вираж/водоотвод/лотки), DynamicSurface/ReconstructionData/SurfaceClearence, ВСП — новая (таблицы) и старая (поучастковая 16.50) модели |
+| `road.md` | Автодорога (`Topomatic.Alg.Road.dll`): `RoadAlignment`, план/поперечники, параметры, километраж, станционирование, интенсивности (`Intensities` — дорожная write-специфика) |
 | `surface.md` | Поверхности (ЦММ): чтение, правка, создание с нуля |
 | `dwg.md` | Чертёж: сущности, листы, CadColor, матрица вставки, блоки, расширенный словарь, слои, штриховки, запись DXF/DWG через ACadSharp |
 | `culverts.md` | Водопропускные трубы: доступ к модели, параметры, спецификации, таблицы, идентификаторы `SheetTableNames` |
@@ -66,6 +68,7 @@
 | `ironpython.md` | Платформа скриптов: IronPython 2.6 в Robur (маршалинг строк, индексаторы, bool, dict, обфускация) |
 | `turnouts.md` | Стрелочные переводы / путевое развитие: `Gridiron`, `SimpleTurnout`, `BufferStop`, `GridironElement`, enum'ы, JSON-формат |
 | `landallotment.md` | Землеустройство/межевание: `LandAllotment`, линии (Design/Existent/Temp/Crs), узлы, стили, слои, расширение доступа `GetLandAllotment` |
+| `cadastre.md` | Кадастр: модель `Topomatic.Cadastre` (выписки Росреестра XML, участки/границы/ЗОУИТ/права, контуры, `CadastralNumber`, опечатка `YearCommisioning`, своп осей `ToVector2D`) и команды `Topomatic.Cadastre.Controller` (82 `[cmd]`) |
 | `pitfalls.md` | Сквозные ловушки API (структуры, undo, лицензии, null-модели, Owner таблиц M4) |
 
 ## Как пополнять

@@ -41,6 +41,89 @@ var sfc = layer.Surface;
 ⚠️ «Правка только через PointEditor» относится к существующим точкам; **создание с нуля** —
 через прямой `Points.Add` (ниже).
 
+### StructureLine — структурная линия (чтение и создание)
+- **Пространство имен:** `Topomatic.Sfc`
+- **Статус исследования:** `[DECOMP]` (подтверждено рефлексией CLR над `Topomatic.Sfc.dll` v16.0.62.12) + `[CODE]` (SurfaceWriter) + `[TUT]` (`sfcedit`)
+- **Суть компонента:** Структурная линия — упорядоченный список ссылок на точки поверхности
+  (по индексу в `sfc.Points`), с меткой класса/участка (`LinearCode`, `AreaCode`) и признаком
+  замкнутости (`IsClosed`). Хранится в коллекциях `sfc.StructureLines`.
+- **⚠️ Ловушки и подводные камни:**
+  1. **Перегрузки `Add`:** у `StructureLine` есть ДВЕ публичные перегрузки `Add`:
+     - `line.Add(int index)` — передаёт напрямую индекс точки в `sfc.Points` (используется в DTO `SurfaceWriter`);
+     - `line.Add(StructureLineNode node)` — передаёт готовую структуру узла.
+  2. **Защита сборки (`InvalidProgramException`):** `Topomatic.Sfc.dll` защищена обфускатором
+     (в IL-телах присутствуют зашифрованные маркеры вроде `#GUlD` / `#Blop`). Вызов методов
+     поверхности в **автономном harness/тестах без хоста Robur** вызовет
+     `InvalidProgramException: Invalid IL code in ... .ctor`. Код работает **только внутри процесса Robur.exe**.
+  3. **`StructureLineNode` — значимый тип (struct)** с полями `Elevation` и `Index`.
+     Изменение `node.Elevation` у копии `var n = line[k]` не меняет элемент в линии —
+     необходимо записать обратно `line[k] = n`.
+  4. **Индексы инвалидируются:** удаление/перемещение точек через `PointEditor` не пересчитывает
+     `Index` в линиях автоматически; сверяйте `sfc.Points.GetNotRemovedCount()`.
+- **Пример использования (C#):**
+
+```csharp
+// 1. Прямой путь через индекс точки (канон SurfaceWriter [CODE]):
+var line = new StructureLine();
+line.Add(pointIndex);               // void Add(int index) — перегрузка 1 [DECOMP]
+line.IsClosed = true;
+sfc.StructureLines.Add(line);
+
+// 2. Путь через готовую структуру узла с отметкой [TUT]:
+var line2 = new StructureLine();
+line2.Add(new StructureLineNode(pointIndex, 120.5)); // void Add(StructureLineNode) — перегрузка 2
+sfc.StructureLines.Add(line2);
+```
+
+### StructureLineNode — узел структурной линии (struct)
+- **Пространство имен:** `Topomatic.Sfc`
+- **Статус исследования:** `[DECOMP]` (CLR-рефлексия `Topomatic.Sfc.dll` v16.0.62.12) + `[CODE]` (SurfaceReader) + `[TUT]`
+- **Суть компонента:** Структура (`IsValueType = true`), хранящая ссылку на точку поверхности (`Index`)
+  и её отметку (`Elevation`). Является элементом списка `StructureLine`.
+- **Конструкторы [DECOMP]:**
+  - `StructureLineNode(int index)` — инициализация по индексу точки поверхности;
+  - `StructureLineNode(int index, double elevation)` — с явным заданием отметки.
+- **⚠️ Ловушки и подводные камни:**
+  1. **Это структура (значимый тип):** получение `var node = line[k]` создаёт копию в стеке.
+     Запись `node.Elevation = 100` меняет только локальную переменную. Записывайте обратно: `line[k] = node`.
+  2. `Index` — индекс в массиве `sfc.Points`, а не позиции узла внутри линии `line`.
+- **Пример использования (C#):**
+
+```csharp
+for (int k = 0; k < line.Count; k++)
+{
+    StructureLineNode node = line[k];   // копия структуры
+    int pIdx = node.Index;              // индекс в sfc.Points
+    double z = node.Elevation;          // отметка узла
+}
+```
+
+### PointEditor — редактор точек поверхности (класс)
+- **Пространство имен:** `Topomatic.Sfc`
+- **Статус исследования:** `[TUT]` (веб-справочник — страницы `add`, `remove`,
+  `setvalue`, `setvertex` и конструктора) + `[CODE]` (экспортный блок SurfaceIO — там
+  подтверждён только *сам факт* создания точек с нуля и правки через `sfc.Points`,
+  PointEditor используется как канонический путь правки изменяемых точек)
+- **Суть компонента:** Официальный, подтверждённый веб-справочником способ правки
+  **существующих** точек поверхности: добавление/удаление/присвоение значения/вершины.
+- **⚠️ Ловушки и подводные камни:**
+  1. **Используйте только для существующих точек.** Создание с нуля — через
+     `sfc.Points.Add(new SurfacePoint(new Vector3D(x,y,z)))`, не через PointEditor
+     (иначе поверхность ведёт себя как «лицензионно пустая» — счётчики сходятся,
+     но данные не пишутся).
+  2. **`PointEditor.Add(SurfacePoint)` возвращает `Int32` — индекс созданной точки**,
+     который надо сохранить для последующих `SetValue`/`SetVertex`.
+  3. **Правка `SetVertex` не меняет семантику** — только геометрию. Семантику меняют
+     через `sfc.GetExtensiveInformation` (см. раздел «Семантика точки» ниже).
+- **Пример использования (C#):** (туториал `sfcedit`):
+
+```csharp
+var editor = new PointEditor(sfc);                        // канонический путь правки
+int ind = editor.Add(new SurfacePoint(new Vector3D(x, y, z)));
+editor.SetValue(ind, newPoint);
+editor.SetVertex(ind, new Vector3D(x, y, z));
+```
+
 ## Создание ЦММ с нуля — `[CODE]` DemLoader
 
 ```csharp
