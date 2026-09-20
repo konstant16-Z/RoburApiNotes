@@ -67,7 +67,7 @@
 | `sheets.md` | Ведомости и поля шаблонов |
 | `ironpython.md` | Платформа скриптов: IronPython 2.6 в Robur (маршалинг строк, индексаторы, bool, dict, обфускация) |
 | `turnouts.md` | Стрелочные переводы / путевое развитие: `Gridiron`, `SimpleTurnout`, `BufferStop`, `GridironElement`, enum'ы, JSON-формат |
-| `landallotment.md` | Землеустройство/межевание: `LandAllotment`, линии (Design/Existent/Temp/Crs), узлы, стили, слои, расширение доступа `GetLandAllotment` |
+| `landallotment.md` | Землеустройство/межевание: `LandAllotment`, линии (Design/Existent/Temp/Crs), узлы, стили, слои, расширение доступа `GetLandAllotment`; **новый механизм 16.0.62** — модуль `Topomatic.Borderline` (`DwgBorderline` в `Drawing.ActiveSpace`, `BorderlineGeometryData`/`NodeOffsets`, канонический путь по `CoreModule`) |
 | `cadastre.md` | Кадастр: модель `Topomatic.Cadastre` (выписки Росреестра XML, участки/границы/ЗОУИТ/права, контуры, `CadastralNumber`, опечатка `YearCommisioning`, своп осей `ToVector2D`) и команды `Topomatic.Cadastre.Controller` (82 `[cmd]`) |
 | `pitfalls.md` | Сквозные ловушки API (структуры, undo, лицензии, null-модели, Owner таблиц M4) |
 

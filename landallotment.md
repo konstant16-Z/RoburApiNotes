@@ -245,3 +245,109 @@ public static class LandAllotmentConsts
   `new DesignLandAllotmentLine(owner, side, style)` → `line.Add(new LandAllotmentNode(line))`.
   Подтверждённых боевых примеров создания/записи пока нет (`[REFL]`), сигнатуры —
   от asmread.
+
+---
+
+## Новый механизм — модуль `Topomatic.Borderline` (замена LandAllotment, 16.0.62) `[DECOMP]`
+
+**Статус:** `[DECOMP]`/`[REFL]` — локальные IL-дампы `monodis` сборок 16.0.62.12
+(`Development/Out/Bin/Topomatic.Borderline.dll` / `.Core.dll` / `.Controller.dll`).
+Механизм **отсутствует в справке и в 16.50** — появляется только в 16.0.62.
+
+### Суть
+
+В новых версиях межевание/полоса отвода = сущности **`DwgBorderline`** («границы») в
+чертеже модели (`Drawing.ActiveSpace`). Слов «LandAllotment»/«otvod» в метаданных
+`Topomatic.Borderline.dll` нет — это отдельный модуль, заменивший
+`Topomatic.Alg.LandAllotment`.
+
+| Сборка | Содержимое |
+|---|---|
+| `Topomatic.Borderline.dll` | `Entities.DwgBorderline`, `BorderlineGeometryData`, `BorderlineNodeOffset(s)`, `BorderlineLinks`/`BorderlineLink`, `BoundaryResolvers` (`BoundaryResolver`/`AreaBoundaryResolver`/`OffsetBoundaryResolver`), `BorderlineTriangulation`, `DwgBorderlineController`, `DwgBorderlineCommunication` |
+| `Topomatic.Borderline.Core.dll` | `CoreModule` — обход моделей проекта и чтение границ (канонический путь, см. ниже) |
+| `Topomatic.Borderline.Controller.dll` | Контроллеры/взаимодействие |
+| `borderline_*.plugin` | Манифесты модуля |
+
+### Сущность `DwgBorderline` `[DECOMP]`/`[REFL]`
+
+Наследник `DwgEntity`; `ENTITY_NAME = "Topomatic.Dwg.Entities.DwgBorderline"`.
+
+| Член | Тип | Назначение |
+|---|---|---|
+| `Links` | `BorderlineLinks` | Привязки границы (список `BorderlineLink`) |
+| `GeometryData` | `BorderlineGeometryData` | Геометрия границ (см. ниже) |
+| `Area` | `double` | Площадь |
+| `Caption` | `string` | Подпись |
+| `NodesContent` | `string` | Содержимое узлов (подпись) |
+| `ShowOnCrs` / `ShowFilling` | `bool` | Показ на поперечниках / заливка |
+| `ToRotateCaptions` / `Annotative` | `bool` | Поворот подписей / аннотативность |
+| `IsEditable` / `IsReadOnly` | `bool` | Редактируемость |
+| `ApproximationPrecision` / `Height` | `double` | Точность аппроксимации / высота |
+
+### `BorderlineGeometryData` `[DECOMP]`/`[REFL]`
+
+| Член | Тип | Назначение |
+|---|---|---|
+| `Owner` | `DwgBorderline` | Владелец (IOwned) |
+| `Pivot` | `Vector2D` | Опорная точка |
+| `VisibleBoundaries` | `List<Vector2D[]>` | **Видимые границы**: каждая граница — массив точек (полилиния) |
+| `VisibleTrianglesVertices` | `Vector2F[]` | Вершины видимой триангуляции |
+| `NodeOffsets` | `BorderlineNodeOffsets` | Смещения узлов по границам |
+| `Numeration` | `Dictionary<int,int>` | Нумерация |
+| `Area` | `double` | Площадь |
+| `IsEditable` / `IsInvalid` | `bool` | Флаги |
+
+`BorderlineNodeOffsets` — `Count`/`Item[int]` → `BorderlineNodeOffset`; элемент —
+**структура**: `BoundaryIndex` (int), `NodeIndex` (int), `Offset` (`Vector2D`), `Rotation` (double).
+
+### Канонический путь доступа (по `CoreModule` `[DECOMP]`)
+
+```csharp
+var project = ApplicationHost.Current.ActiveProject as ModelProject; // null → нет
+foreach (var pair in project.GetOpenedModels())                      // KVP<IProjectModel, IEditorResult>
+{
+    var model = pair.Key.Model;                                       // объект модели
+    if (!(model is IDrawingContainer dc)) continue;
+    foreach (DwgEntity e in dc.Drawing.ActiveSpace)                   // активное пространство
+    {
+        if (e is DwgBorderline b && b.GeometryData != null)
+        {
+            var boundaries = b.GeometryData.VisibleBoundaries;        // List<Vector2D[]>
+        }
+    }
+}
+```
+
+Из оси (как в экспортёре): цепочка `axis.Owner` → `IDrawingContainer` → `Drawing`
+→ `ActiveSpace`; сущность распознаётся по имени типа `"DwgBorderline"` (сборка
+`Topomatic.Borderline`). Read-only, Undo/redo не нужен.
+
+### Stg-совместимость (данные старого формата)
+
+В `.railx` 16.0.62 межевание по-прежнему хранится legacy-деревом
+`Topomatic.Alg.LandAllotment` (строк «Borderline» в файле нет — сущности
+`DwgBorderline` генерируются рантаймом и в stg не сохраняются):
+
+- дочерние узлы оси: `design_land_allotment` / `temp_land_allotment` /
+  `existent_land_allotment`;
+- атрибуты узла: `Landallotment`, `DesignLinesStyle`, `EditorStyle`, `MarkersColor`,
+  `ShowMarkers`, `ShowVertexCoords`, `TempLinesStyle`, `ShowLines`,
+  `ExistentLinesStyle` (стили старого межевания).
+
+### Ловушки
+
+- В headless-экспорте легаси-плагин межевания в `axis.Plugins` может НЕ
+  регистрироваться: на модели `3.railx` реально читаются 7 ключей — `Gridiron`,
+  `ReferenceTransition`, `WaterLinePlugin`, `ProfileEntities`, `Its`, `GradeSign`,
+  `Straightening`; ни один не реализует `ILandAllotmentContainer` → штатный
+  `GetLandAllotment()` даёт `null`, хотя данные межевания в модели есть.
+- `DwgBorderline` доступны только если чертёж модели материализован (в
+  интерактивной сессии — да; в полностью головном прогоне — проверяется, см.
+  `land_allotment_debug.txt`).
+- `Topomatic.Pipes.Runtime.LandAllotmentZone` (`sealed DwgEntity`,
+  `DesignAlias = "LAND_ALLOTMENT_ZONE"`, контроллер `LandAllotmentZoneController`) —
+  отдельный след «зон полосы отвода» для труб (поля: `Axis`
+  (`List<ContourInfo.LineInfo>`), `OffsetRight/Left/Forward/Backward`, `Contours`/
+  `TrimContours` (`List<List<Vector2D>>`), `PlanSignName`, `Area`,
+  `SimpleOrComplexZone`, `ArcPrepareType`, `HeightChord`, `StepLength`);
+  `ContourInfo.InfoType.LandAllotmentZone = 4`. Не является линией межевания оси.
