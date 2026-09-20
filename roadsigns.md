@@ -68,6 +68,39 @@ Write-факт из веб-дампа ([TUT]; страницы `topomatic.roadsi
 «знак на пикете» (`road.md` §«План»), как и дорожные знаки ПДД — write-элемент,
 а не таблица-интенсивность M4.
 
+## Таблички-планшеты на стойке (`MarkSquareWoodTable` / `MarkRoundWoodTable`)
+
+`[DECOMP]` monodis --typedef (rows 36/37): `Topomatic.RoadSigns.MarkRoundWoodTable`
+(`flist=143, mlist=381`) и `Topomatic.RoadSigns.MarkSquareWoodTable`
+(`flist=144, mlist=403`) — деревянные таблички-планшеты, которые НАВЕШИВАЮТСЯ
+на стойку знака (см. §«Стойка знака» выше). Это IList-коллекции планшетов
+(элементы `MarkRoundWoodRec`/`MarkSquareWoodRec`), а НЕ write-модель знака
+(`RoadSignData`) и НЕ разметка (`roadmarking.md`).
+
+Write-набор ([TUT] веб, страницы `marksquarewoodtable.{add,insert,remove,removeat,
+clear,getenumerator,contains,copyto,indexof,item,count}`): планшеты пишутся как
+коллекция `IList<MarkSquareWoodRec>`:
+
+```csharp
+var stand = new DwgRoadSignStand();          // стойка (§ выше)
+var table = new MarkSquareWoodTable();       // [TUT]: квадратный планшет-набор
+table.Add(new MarkSquareWoodRec(/* геометрия */));  // [TUT]: write-планшет
+stand.Marks.Add(table);                      // паттерн «стойка → планшеты»
+```
+
+| Метод IList-планшета | Роль |
+|---|---|
+| `Add(MarkSquareWoodRec)` / `Insert(int, ...)` | добавить планшет в набор |
+| `Remove(...)` / `RemoveAt(int)` / `Clear()` | убрать планшет |
+| `Contains(...)` / `IndexOf(...)` / `CopyTo(...)` | поиск/копирование |
+| `get_Item(int)` / `Count` | доступ по индексу/число |
+| `GetEnumerator()` | перечисление планшетов |
+
+⚠️ **Ловушка уровня II**: `MarkSquareWoodTable` — **НЕ** стойка и **НЕ** знак:
+это коллекция-планшет (чертёжный набор рекордов), вешается на стойку
+`DwgRoadSignStand`. Не путать с `RoadSignData` (write-модель знака ПДД § выше),
+с `DwgRoadSignStand` (стойка § выше) и с `roadmarking.md` (разметка дорог).
+
 ## Ловушки
 
 1. **НЕ писать знак как таблицу M4**: RoadSignData — IStgSerializable,
