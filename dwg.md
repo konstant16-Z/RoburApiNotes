@@ -342,6 +342,35 @@ if (e.HasExtensionDictionary && e.GetExtensionDictionary().GetString("guid", nul
 | `table[row, column]` → ячейка; `.SourceText` | Текст ячейки | `[CODE]` |
 | `table.Position` (`Vector3D`), затем `ActiveSpace.Add(table)` | Позиционирование и вставка | `[CODE]` |
 
+### Реальные источники write-данных таблицы — `[DECOMP]` `Topomatic.Tables.Export.dll`
+
+Write-данные таблиц приходят **не** выдуманным `DwgTableSourceData`-однострочником,
+а через **реально объявленные** декомпиляцией токены (`[DECOMP]`,
+`Topomatic.Tables.Export.dll`); класс-импортёр `DwgTableImport` объявлен в под-namespace `Import`:
+
+| Токен | Namespace typedef | extends→родитель | Статус |
+|---|---|---|---|
+| `DwgTableImport` | `Topomatic.Tables.Export.Import.DwgTableImport` (flist=215, mlist=468) | extends=0x65 | `[DECOMP]` |
+| `DwgTableSourceData` | `Topomatic.Tables.Export.Import.DwgTableSourceData` (flist=218, mlist=489) | extends=0x65 | `[DECOMP]` |
+| `DwgTableSourceDataCSV` | `Topomatic.Tables.Export.Import.DwgTableSourceDataCSV` (flist=224, mlist=498) | extends=0xe0 | `[DECOMP]` |
+| `DwgTableSourceDataMultiSheet` | `Topomatic.Tables.Export.Import.DwgTableSourceDataMultiSheet` (flist=227, mlist=503) | extends=0xe0 | `[DECOMP]` |
+| `DwgTableSourceDataDWP` | `Topomatic.Tables.Export.Import.DwgTableSourceDataDWP` (flist=228, mlist=506) | extends=0xe8 | `[DECOMP]` |
+| `DwgTableSourceDataExcel` | `Topomatic.Tables.Export.Import.DwgTableSourceDataExcel` (flist=228, mlist=512) | extends=0xe8 | `[DECOMP]` |
+| `DwgTableUtils` | `Topomatic.Tables.Export.DwgTableUtils` (flist=110, mlist=180) | extends=0x65 | `[DECOMP]` |
+
+Мост «источник данных → сущность таблицы» — на `DwgTableImport` (write-токены
+`CreateTable`/`DwgTableRefreshDataFromSource`, mlist 469–471) и на самом источнике
+`DwgTableSourceData.CreateDwgTable(DwgTableStyle)` (mlist 494). Члена `DataSource`
+на `Topomatic.Dwg.Entities.DwgTable` **нет** (проверено декомпиляцией) — не использовать:
+
+```csharp
+// [DECOMP] токены доказаны (Topomatic.Tables.Export.dll, namespace Import):
+var source = new DwgTableSourceDataCSV("modelId"); // ctor (string modelId), mlist 498
+var importer = new DwgTableImport();               // токен объявлен (flist=215, mlist=468)
+var table = importer.CreateTable(source, style);           // → Entities.DwgTable (mlist 469)
+importer.DwgTableRefreshDataFromSource(table);             // перечитать данные из источника (mlist 470)
+```
+
 ## Базовые write-сущности
 
 Общий базовый write-тип всех плановых сущностей (`DwgLine`, `DwgCircle`,
