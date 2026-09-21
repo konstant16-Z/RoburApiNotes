@@ -342,6 +342,44 @@ if (e.HasExtensionDictionary && e.GetExtensionDictionary().GetString("guid", nul
 | `table[row, column]` → ячейка; `.SourceText` | Текст ячейки | `[CODE]` |
 | `table.Position` (`Vector3D`), затем `ActiveSpace.Add(table)` | Позиционирование и вставка | `[CODE]` |
 
+## Базовые write-сущности
+
+Общий базовый write-тип всех плановых сущностей (`DwgLine`, `DwgCircle`,
+`DwgText`, `DwgInsert`, `DwgPolyline`) подтверждён декомпиляцией
+(`[DECOMP]`, `Topomatic.Dwg.dll`): у всех пяти строка typedef имеет
+**ровно один и тот же** `extends=0xdc`, который разворачивается в
+`Topomatic.Dwg.Entities.DwgEntity`.
+
+| Базовый токен | Сборка | typedef-факт | Статус |
+|---|---|---|---|
+| `DwgEntity` | `Topomatic.Dwg.dll` | `Topomatic.Dwg.Entities.DwgEntity` (flist=158, mlist=580) | `[DECOMP]` |
+| `DwgObject` | `Topomatic.Dwg.dll` | `Topomatic.Dwg.DwgObject` (flist=84, mlist=149) | `[DECOMP]` |
+
+Все write-сущности ActiveSpace наследуют `DwgEntity` (общий `extends=0xdc`),
+поэтому принимаются одним write-методом:
+
+```csharp
+// [DECOMP] базовый тип доказан; сигнатуры из robur-mcp (см. §Пространство чертежа)
+DwgEntity MakeLine(Vector3D from, Vector3D to)
+{
+    var line = new DwgLine();
+    line.Geometry = new DwgLineGeometry(from, to); // только подтверждённые члены
+    return line talags;
+}
+drawing.ActiveSpace.Entities.Add(MakeLine(from, to)); // вставка в ActiveSpace
+```
+
+### Честные «пусто» — токенов коллекций НЕТ [DECOMP]
+
+| Токен | Факт |
+|---|---|
+| `DwgObjectReference` | `[DECOMP]` не объявлен — не использовать |
+| `DwgObjectCollection` | `[DECOMP]` не объявлен — не использовать |
+| `DwgEntityCollection` | `[DECOMP]` не объявлен — не использовать |
+
+Реальный контейнер сущностей — `ActiveSpace.Entities` / `Layout.Block`
+(см. §Пространство чертежа), а не несуществующий `DwgEntityCollection`.
+
 ## Определение типа сущности
 
 Классы сущностей, встречающиеся в robur-mcp: `DwgPolyline`, `DwgTable`, `DwgMText`,
