@@ -356,17 +356,19 @@ if (e.HasExtensionDictionary && e.GetExtensionDictionary().GetString("guid", nul
 | `DwgObject` | `Topomatic.Dwg.dll` | `Topomatic.Dwg.DwgObject` (flist=84, mlist=149) | `[DECOMP]` |
 
 Все write-сущности ActiveSpace наследуют `DwgEntity` (общий `extends=0xdc`),
-поэтому принимаются одним write-методом:
+поэтому принимаются одним write-методом (члены подтипов из robur-mcp,
+см. §Пространство чертежа):
 
 ```csharp
-// [DECOMP] базовый тип доказан; сигнатуры из robur-mcp (см. §Пространство чертежа)
-DwgEntity MakeLine(Vector3D from, Vector3D to)
+// [DECOMP] базовый тип DwgEntity доказан; конкретный член line.Geometry НЕ
+// подтверждён декомпиляцией (токена нет) — поэтому пример честно ограничен:
+// создание write-сущности и вставка в ActiveSpace (только доказанные шаги).
+DwgEntity MakeLine()
 {
-    var line = new DwgLine();
-    line.Geometry = new DwgLineGeometry(from, to); // только подтверждённые члены
-    return line talags;
+    var line = new DwgLine();           // [DECOMP] extends=0xdc → DwgEntity
+    return line;                        // возвращаем по базовому типу
 }
-drawing.ActiveSpace.Entities.Add(MakeLine(from, to)); // вставка в ActiveSpace
+drawing.ActiveSpace.Entities.Add(MakeLine()); // [DECOMP] ActiveSpace.Entities см. §Пространство
 ```
 
 ### Честные «пусто» — токенов коллекций НЕТ [DECOMP]
