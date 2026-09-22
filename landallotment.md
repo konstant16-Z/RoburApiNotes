@@ -322,17 +322,103 @@ foreach (var pair in project.GetOpenedModels())                      // KVP<IPro
 → `ActiveSpace`; сущность распознаётся по имени типа `"DwgBorderline"` (сборка
 `Topomatic.Borderline`). Read-only, Undo/redo не нужен.
 
+### Запись `DwgBorderline` (write-API, импортёр) `[DECOMP]`
+
+Подтверждено `monodis` на `Topomatic.Borderline.dll` 16.0.62.12 (импортёр
+`rim_commands._write_borderline`):
+
+| Шаг | API | Комментарий |
+|---|---|---|
+| Создание | `new DwgBorderline()` | **public** `.ctor()`; `GeometryData`/`Links` — get-only, создаются в ctor |
+| Writable-поля | `Caption`, `ShowOnCrs`, `ApproximationPrecision`, `ShowFilling`, `Annotative`, `ToRotateCaptions`, `Height`, `BackgroundColor/FillType`, `NodesContent`, `Style` | обычные сеттеры |
+| Геометрия | см. ниже «Запись геометрии» | `VisibleBoundaries` — **производная** (резолвится из `Links`); `AddVertex` — no-op при пустом backing; рабочий путь — приватные поля-кэши |
+| Вставка в чертёж | `drawing.ActiveSpace.Entities.Add(ent)` | канон `ApiNotes/dwg.md`; `Entities` — коллекция с `Count/Item/Add` |
+
+Привязка к оси (`Links` → `AlignmentBorderlineLink` из
+`Topomatic.Borderline.Controller.dll`, фабрика `BorderlineLinkFactory` по объекту)
+записывает `LinkData` (ModelUID, LOffset/ROffset, FromSta/ToSta…) — экспортёр её
+в JSON не пишет, импортёр восстанавливает только геометрию (симметрия; без Links
+резолвер геометрию не пересчитывает — это константный кэш).
+
+#### Запись геометрии — приватные поля-кэши `BorderlineGeometryData` `[DECOMP]`
+
+`VisibleBoundaries` — **производная геометрия**: getter при пустом backing вызывает
+резолвер (`AlignmentBoundaryResolver.GetBoundaries`), который строит полигон из
+`Links` оси (`link.get_CachedLinkedObject() isinst Topomatic.Alg.Alignment`); у
+свежей сущности `Links.Count == 0` → резолвер молча возвращает null → границ нет.
+`AddVertex(boundaryIndex, insertIndex, Vector2D)` при пустом backing — no-op
+(требует уже существующих подмассивов + лицензионный gate 44 с возвратом без
+работы). `Invalidate()` стирает backing при `!IsEditable`.
+
+Поэтому геометрия пишется **напрямую в приватные поля по ТИПУ** (имена
+обфусцированы; `fields_of_type(obj, type)` ищет по точному типу):
+
+| Поле/свойство | Тип | Что пишем |
+|---|---|---|
+| (поле, 1-е) | `List<Vector2D[]>` | кэш `VisibleBoundaries`: контуры из JSON как есть (5 точек, включая замыкающую) |
+| (поле, 2-е) | `Vector2F[]` | триангуляция: веер из первой точки, координаты **`f32(p − pivot)`** — по ней `get_Area` считает площадь |
+| `Pivot` (свойство) | `Vector2D` | первая точка первого контура |
+| `IsEditable` (свойство) | `bool` | **true** — защита backing от `Invalidate()` |
+| `IsInvalid` (свойство) | `bool` | **false** — иначе getter сам вызовет `Invalidate()` |
+
+`SaveToStg` сериализует ровно эти кэши (IsEditable, Pivot, VisibleBoundaries,
+Vector2F[]-трис, нумерация, NodeOffsets), `LoadFromStg` восстанавливает —
+round-trip сохраняется. Площадь в файл НЕ пишется: `get_Area` = сумма
+`TriangleArea(Vector2F-трис)` — для контура 53.railx (5 точек, веер из p0,
+`f32(p − p0)`) это в точности `791.7788282785233` (= `791.77882827852329`
+в JSON), сверино численно. Double-шолос полигона НЕ совпадает
+(791.7788464449523) — трис обязательны для совпадения area.
+
+Пример (IronPython, паттерн импортёра):
+
+```python
+ent = rim_reflection.construct(b_type, [])            # DwgBorderline()
+rim_reflection.set_prop(ent, u"Caption", caption)
+rim_reflection.set_prop(ent, u"ShowOnCrs", True)
+gd = rim_reflection.read(ent, u"GeometryData")
+gd.BeginUpdate()
+try:
+    list_t = System.Type.GetType(u"System.Collections.Generic.List`1").MakeGenericType(v2_type.MakeArrayType())
+    backing = System.Activator.CreateInstance(list_t)
+    for pts in per_b:                                  # per_b: [[(x, y), ...], ...]
+        arr = System.Array.CreateInstance(v2_type, len(pts))
+        for k, (x, y) in enumerate(pts):
+            v = rim_reflection.construct(v2_type, [])
+            rim_reflection.set_field(v, u"X", x); rim_reflection.set_field(v, u"Y", y)
+            arr.SetValue(v, k)
+        backing.Add(arr)
+    gd_fields = rim_reflection.fields_of_type(gd, list_t)
+    rim_reflection.set_private_field(gd, gd_fields[0][0], backing)
+    # Pivot (первая точка), IsEditable=true, IsInvalid=false, Vector2F[]-веер (см. rim_commands)
+finally:
+    gd.EndUpdate()
+entities = rim_reflection.read(active_space, u"Entities")
+entities.Add(ent)
+```
+
+Перед добавлением импортёр удаляет существующие `DwgBorderline` из
+`ActiveSpace.Entities` (замена блока, как `Clear()+Add()` у legacy-линий) —
+иначе повторный импорт дублирует зоны.
+
 ### Stg-совместимость (данные старого формата)
 
-В `.railx` 16.0.62 межевание по-прежнему хранится legacy-деревом
-`Topomatic.Alg.LandAllotment` (строк «Borderline» в файле нет — сущности
-`DwgBorderline` генерируются рантаймом и в stg не сохраняются):
+В `.railx` 16.0.62 межевание может храниться **двумя путями**:
 
-- дочерние узлы оси: `design_land_allotment` / `temp_land_allotment` /
-  `existent_land_allotment`;
-- атрибуты узла: `Landallotment`, `DesignLinesStyle`, `EditorStyle`, `MarkersColor`,
-  `ShowMarkers`, `ShowVertexCoords`, `TempLinesStyle`, `ShowLines`,
-  `ExistentLinesStyle` (стили старого межевания).
+- **legacy-дерево** `Topomatic.Alg.LandAllotment` (золотой `Export_Rail10/3.railx`):
+  дочерние узлы оси `design_land_allotment` / `temp_land_allotment` /
+  `existent_land_allotment`; атрибуты узла `Landallotment`, `DesignLinesStyle`,
+  `EditorStyle`, `MarkersColor`, `ShowMarkers`, `ShowVertexCoords`, `TempLinesStyle`,
+  `ShowLines`, `ExistentLinesStyle` (стили старого межевания);
+- **сущности `DwgBorderline` в чертеже** (проверено на `Dop/53.railx` —
+  `Situation/Blocks[*]/Entities[*]`): зона отвода, созданная через НОВЫЙ UI
+  «Полоса отвода», попадает в railx именно так; легasi-плагин оси при этом в
+  рантайме НЕ регистрируется (`axis.Plugins.Count = 7` без LandAllotment) —
+  экспортёр идёт по Borderline-ветке (`build_borderline_from_drawing`).
+
+Форма Borderline-JSON экспортёра: `type/category/source:"Borderline"/count/borderlines[]`
+(каждая: `caption`, `area`, `showOnCrs`, `boundaryCount`, `boundaries[][][x,y]`,
+`nodeOffsets[]`). `Links.LinkData` (LOffset/ROffset, FromSta/ToSta, ModelUID…)
+экспортёр НЕ пишет — при импорте восстанавливается только геометрия полигона.
 
 ### Ловушки
 
