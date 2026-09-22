@@ -28,13 +28,37 @@ public abstract class Alignment : UndoObject, IAlignmentContainer, IStgSerializa
 | `Bridges` | `BridgesCollection` |
 | `Signs` | `ConventionalSigns` |
 | `StartStation`, `Description`, `DtmSizeLeft/Right` | `double`/`string` |
-| `EgSurfaceRelativePaths`, `ProfileCuttingSurfacesRelativePaths`, `SectionCuttingSurfacesRelativePaths`, `AlignmentIntersectionsRelativePaths` | `IList<string>` |
+| `FilterCrossPoint`, `FilterCrossPointFactor` | `bool`/`double` (фильтр точек пересечения сечений) |
+| `EgSurfaceRelativePaths`, `ProfileCuttingSurfacesRelativePaths`, `SectionCuttingSurfacesRelativePaths`, `AlignmentIntersectionsRelativePaths` | `IList<string>` (BSTG `EgSurfaces` = узел `{Moniker}`; `Moniker` — тот же relative-путь) |
 | `ConstructionTemplates`, `PlanVertexEditedItems`/`PlanVertexElementsEditedItems`/`PlanLineSegmentsEditedItems` (`BasicEditedItemsTable`) | служебные |
-| `IsLimitedChange`, `MinChangeStation`, `MaxChangeStation`, `HasSynchronizedAlignment`, `SynchronizedAlignmentIdRelativePath` | опциональные |
+| `IsLimitedChange`, `MinChangeStation`, `MaxChangeStation`, `HasSynchronizedAlignment`, `SynchronizedAlignmentIdRelativePath` | опциональные (свойства `HasSynchronizedAlignment`+`SynchronizedAlignmentIdRelativePath` соответствуют BSTG-узлу `SynchronizedAlignment` — узел с одним ребёнком `Moniker` (строка-путь), см. ниже) |
 | `Owner`, `Alias` (abstract), событие `SettingsChanged` | — |
 
 Помимо свойств, на базовом классе есть `public virtual void Clear()` — полная очистка
 собственных подобъектов (внутри `BeginUpdate/EndUpdate`).
+
+### Скалярные настройки / ссылки оси: BSTG-ключи ↔ свойства (M2)
+
+`[DECOMP]` `Topomatic.Alg.dll` (`research-plan.il`): у базового `Alignment` **публичные
+get/set TransactableField-свойства** для 6 ключей из BSTG-раздела `Alignment`
+(проверено по реальным моделям `Dop/railx/*.railx` — все присутствуют, `[CODE]`
+экспорт `alignment/parameters.json`, импорт `_PARAMETERS_SCALAR_MAP`
+в `rim_import_props`):
+
+| BSTG-ключ (railx) | .NET свойство | Тип | Комментарий |
+|---|---|---|---|
+| `DtmSizeLeft` / `DtmSizeRight` | `DtmSizeLeft` / `DtmSizeRight` | `double` | размеры окна построения сечений из ЦММ (не геометрия); 50.0/50.0 в большинстве моделей, в 4к — 40/60 |
+| `FilterCrossPoint` | `FilterCrossPoint` | `bool` | фильтр точек пересечения сечений |
+| `FilterCrossPointFactor` | `FilterCrossPointFactor` | `double` | коэффициент того же фильтра (0.05; в 5к — 0.0496) |
+| `SynchronizedAlignment` | `HasSynchronizedAlignment` + `SynchronizedAlignmentIdRelativePath` | `bool` + `string` | в railx — узел с одним ребёнком `Moniker` (строка-путь); в реальных моделях Moniker пустой |
+| `RailAlignmentType` | `AlignmentType` (enum `RailAlignmentType`) | enum, **только на `RailAlignment`** | см. `rail.md`; на `RoadAlignment` свойства нет → при импорте пропуск |
+
+`EgSurfaces` (railx: массив узлов `{Moniker}`) — это и есть `EgSurfaceRelativePaths`
+(`IList<string>`), **уже покрыт**: экспорт `alignment/cutting_surfaces.json`
+(`build_string_list`), импорт `_write_cutting_surfaces` (Clear + Add).
+
+**Не парсим** (нет публичного свойства): `DynamicSurfaceType` и
+`Model3DElementContext` — см. `rail.md`.
 
 **Интерфейсы — единая навигация «владелец»**: `IAlignmentContainer` даёт
 `Alignment Alignment {get;}`; его же реализуют таблицы M4 — `VirageTable.Alignment`

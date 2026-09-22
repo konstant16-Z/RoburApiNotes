@@ -148,6 +148,32 @@ double EndSta, bool FromEdge, TrayCollection)`; свойства соответ�
   раньше давал только счётчики — пары пикет→дистанция терялись, импорт отмечал
   «пары не выгружены экспортёром»).
 
+### Тип ж/д пути и два «непарсимых» раздела
+
+`[DECOMP]` `Topomatic.Alg.Rail.dll` (`rail_md.il` + `Controller.cs`), `[CODE]`
+экспорт `alignment/parameters.json` / импорт `_PARAMETERS_SCALAR_MAP`:
+
+- **`RailAlignment.AlignmentType`** — `enum Topomatic.Alg.Rail.RailAlignmentType`
+  (`Project = 0`, `Existing = 1`), публичные get/set (TransactableField). BSTG-ключ
+  `RailAlignmentType` (Int32 в разделе `Alignment`; во всех реальных моделях = 0).
+  Экспорт: `parameters["RailAlignmentType"] = int(axis.AlignmentType)` (на
+  `RoadAlignment` свойства нет → None). Импорт: `jtyped` enum-путём
+  (`Enum.Parse(type, "0")` — числовая строка разбирается как underlying-значение).
+
+- **`DynamicSurfaceType`** — BSTG Int32 (0..1), но **публичного свойства НЕТ**
+  (только `DynamicSurface` bool, `DynamicProjectSurfaceUseFactor` bool,
+  `DynamicProjectSurfaceUserFactorValue` double, `DynamicSurfaceFactor`,
+  `DynamicSurfaceGaps` — они с get/set и уже импортируются). Скорее всего приватное
+  кэш-поле сериализации (как у DwgBorderline); парсить не стали — int 0/1, ценности
+  мало. Для round-trip не требуется.
+
+- **`Model3DElementContext`** — BSTG-узел (каталог Smdx-агрегатов: `classes`/
+  `types`/`models`; в ж/д-моделях — рельсы Р65, скрепления Костыльное/ЖБР-65,
+  шпалы Тип I/Ш3 с `properties`). Присутствует и в `Alignment/`, и в
+  `Alignment/Plugins/Gridiron/`. **Публичного свойства нет ни в `Topomatic.Alg.dll`,
+  ни в `Topomatic.Alg.Rail.dll`** (ни один IL/декомпилированный .cs его не
+  объявляет) — не парсим.
+
 ---
 
 ## Верхнее строение пути (ВСП) — два формата, конвертация sections→таблицы
