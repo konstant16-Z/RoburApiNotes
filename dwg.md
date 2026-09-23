@@ -58,7 +58,7 @@ foreach (DwgLayout layout in drawing.Layouts)
 | `DwgWipeout` | `Count` + `e[i]` → `Vector2D` | `[CODE]` |
 | `DwgHatch` | Только метаданные паттерна; геометрия не разворачивается | `[CODE]` |
 | `DwgPoint` | Пропуск при экспорте | `[CODE]` |
-| `DwgDimension*` / `DwgCoordinateLeader` / `DwgLeader` | Комплексные сущности (дети) — экспортировать по дочерним примитивам | `[CODE]` DxfExport |
+| `DwgDimension*` / `DwgCoordinateLeader` / `DwgLeader` / `MapsLeaderEntity` | Комплексные сущности. `DwgDimension*` — свои конвертеры (DIMENSION); `DwgCoordinateLeader` и наследники (`DwgLeader`, картографические `MapsLeaderEntity`) — **не разворачиваются в детей**, пишутся как LEADER/MLEADER | `[CODE]` DxfExport |
 | `DwgTable` | `Topomatic.Tables.Export.dll`; `DefaultRowHeight` — **Int32**, не double | `[CODE]` |
 | `DwgViewport` | Пропуск (служебная) | `[CODE]` |
 
@@ -178,7 +178,7 @@ var byBlock  = Color.ByBlock;                        // ACI = 0
 | `DwgMText` | `MText` | `Value`, `InsertPoint`, `Height`; `Rotation` — read-only |
 | `DwgHatch` | `Hatch` | `Paths.Add(BoundaryPath(Polyline))`, `IsSolid`, `PatternAngle/Scale` |
 | `DwgInsert` | `Insert` | ctor `(BlockRecord)`, масштабы ≠ 0, `Rotation` (рад) |
-| `DwgLeader` | `Leader` / `MultiLeader` | Текст — только через `MultiLeader` (`ContextData`) |
+| `DwgLeader` / `MapsLeaderEntity` | `Leader` / `MultiLeader` | Текст — только через `MultiLeader` (`ContextData`) |
 | `DwgClothoid` | `LwPolyline` | Аппроксимация Френеля (~20 сегм./100 м) |
 | `DwgWipeout` | `LwPolyline` | Плоские points |
 | `DwgSolid` | `Solid` | `First…FourthCorner`; треугольник → `c4 = c3` |
@@ -229,6 +229,35 @@ ml.ContextData.LeaderRoots.Add(root);
 (`340 → 2D`), текст кириллицей UTF-8 в group `304`, путь лидера в `302`/`10,20`;
 `DxfReader` читает всё обратно (`ContextData.TextLabel`). `GetBoundingBox()` = null —
 не использовать.
+
+### Чтение лидеров — базовый `DwgCoordinateLeader`
+
+`[CODE]` DxfExport (`LeaderConverter.cs`) + декомпиляции `Tools/Decomp/`:
+
+- Все лидеры (простой `DwgLeader` и картографические `MapsLeaderEntity` из
+  `Topomatic.Maps`) наследуют `DwgCoordinateLeader`. Геометрия выноски живёт в
+  базовом поле `list_0` (публичные `Count` + индексатор `Item[int]` →
+  `Vector2D`, Stg-сериализуется); `Position` — отдельное поле **позиции текста**
+  (тоже `Vector2D` в базе). Точки стрелки и позиция текста ортогональны:
+  у классической выноски точка стрелки отстоит от `Position` на габарит.
+
+- **Ловушка (рефлексия):** у `MapsLeaderEntity` индексатор переопределён
+  **только с сеттером** (IL: `.property Item { .set }` без `.get` — геттер
+  наследуется из базы). `GetProperty("Item", typeof(int)).GetValue(...)` даёт
+  `PropertyInfo` с `CanRead = false` и бросает — точки молча теряются
+  (`points = []`). Читайте типизированно: `leader.Count` + `leader[i]` —
+  виртуальный вызов уходит в базовый `get_Item`. `ArrowHeadEnabled`-свойства в
+  иерархии лидеров нет вовсе — настоящий признак стрелки: `ArrowheadType != None`
+  (у `MapsLeaderEntity` оформление лежит в `Style` (`MapsLeaderStyle`): `Height`,
+  `ArrowheadType`, `ArrowheadSize`).
+
+- Уклоноуказатели (`MapsLinearLeaderEntity` / `MapsPolylineLeaderEntity`, слои
+  «Уклоноуказатели»): геометрия — из `GetPolyline()` (`Polyline2DCurve`,
+  `IEnumerable<BugleVector2D>` — булги игнорируются, берутся точки); стрелка —
+  `GradeArrowheadType` **самой сущности** (в `Recreate` копируется в детей
+  `DwgLeader` как `acDimArrowheadType_0`), `Style.ArrowheadType` — только fallback.
+  Битые выноски (`IsPurged`: `PrepareLine` не нашёл привязанную полилинию по
+  `DependentHandle`) имеют пустую геометрию и детей — в экспорт не попадают.
 
 ### Размеры: поворот и значение (DIMENSION)
 
