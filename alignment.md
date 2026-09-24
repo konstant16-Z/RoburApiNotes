@@ -169,6 +169,14 @@ try { if (t.DynamicEg != null) return t.DynamicEg; } catch { }
 try { return t.EgProfile; } catch { return null; }
 ```
 
+**BSTG-хранение узлов профилей** `[CODE]` rim_railx_json (`_write_transitions_json` 1473,
+`_write_crosssections_json` 1187): узлы лежат в самом transition-узле BSTG —
+`EgProfile.ProfileNodes` / `RedProfile.ProfileNodes` (каждый узел: `Station`/`Elevation`,
+у красного также `Radius`/`Length`/`Flags`); `_write_transitions_json` раскладывает их в
+`eg`/`red` файлов переходов, `_write_crosssections_json` — в №0-группе .act (`_profile_nodes`).
+«Точек профилей переходов в BSTG нет» — устаревшее утверждение: они есть, просто лежат
+внутри `Values[]` (узлы перехода), а не на верхнем уровне `Transitions`.
+
 Правка красного профиля `[TUT]`: `redProfile.GetY(sta, out y)`, `profile.Add/Remove`,
 `ProjectNode`, `ProjectNodeFlags.UseRadius`.
 
