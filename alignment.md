@@ -92,6 +92,13 @@ using (var r = ActiveAlignmentReciver<Alignment>.CreateReciver(false))
 | `plan.Add(Vertex)` / `Insert(int, Vertex)` / `RemoveAt(int)` / `Clear()` | `PlanLine` = `IList<Vertex>`; `Add` сам открывает `BeginTransaction→Commit`, назначает `Owner`/`ID`; **геометрию НЕ пересчитывает** — после записи нужен `Invalidate()`+`CompoundLine` (см. ниже) | `[DECOMP]` |
 | `PlanLineSolver.PlanVertexesValid(plan)` | Валидация геометрии плана | `[DECOMP]`/`[TUT]` |
 
+> **Ловушка при сравнении файлов:** `Plan.PlanVertexes[].ID` — сквозной счётчик
+> узлов, а не позиция в массиве. Пересозданные вершины получают `ID` выше прежних
+> (`53.railx` — `1,2`; `531.railx` с теми же координатами — `13,14`). Ссылки на
+> `ID` внутри файла **нет** (`Transitions`/`Sections` их не содержат), поэтому
+> для семантического сравнения планов `ID` надо игнорировать. Формат и доказательства —
+> `railx.md`.
+
 ### Запись плана с нуля — подтверждено декомпиляцией `Topomatic.Alg.dll`
 
 (`[DECOMP]` `ilspycmd -t Topomatic.Alg.Plan.PlanLine`; XML-доков для Rail-типов нет,

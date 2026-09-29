@@ -20,6 +20,7 @@
 | `bool CadCursors.GetPoint(CadView view, out Vector3D p, string msg)` | **bool-вариант**: точка или `false` на отмену; основная сигнатура туториалов | `[TUT]` tutorial3/4/7/8/9/10/11, TutorialEditAlignment; `[CODE]` Runoff, DemLoader |
 | `CadCursors.GetPoint(...)` → `GetPointResult` | Другая сигнатура: `Accept`/`UserCmd`/`Cancel` (опция вместо точки), `cadView.LastUserCmd` | `[TUT]` TutorialEditSurfaceElements |
 | `CadCursors.GetDouble/GetInteger/GetString/GetBoolean/GetLength/GetFrame/GetUserSelect` | Остальные вводы | `[TUT]` |
+| `CadCursors.GetString(CadView, ref string, string msg, params string[] options)` → `GetPointResult` | Запрос строки (имя/текст); `Accept`/`Cancel` | `[DECOMP]` + BlockEditor |
 | `bool CadCursors.GetUserSelect(CadView view, ref string value, object filter, string msg, params string[] options)` | Выбор строки из списка опций; `false` на отмену (пример: «Вся модель / Только выбранные») | `[CODE]` |
 | `FrameCursor.GetFrame()` → результат типа `GetPointResult` | Ввод рамки | `[TUT]`/`[CODE]` |
 
@@ -76,6 +77,7 @@ switch (result)
 | `SelectionSet.SelectAll()` / `FilterSelected(pred)` | Выделить всё / отфильтровать | `[TUT]` |
 | `SelectionSet.Count, Clear, Select, IsSelected, IsOwned, IsEnable, GetSelectable, Erase` | Переопределяемы для собственного набора | `[TUT]` |
 | `SelectionSet.GetObjectsAtPoint(point, match, timeOut)` / `GetObjectsByFrame(mode, rect, match, action)` | Поиск по клику/рамке; `NullDeviceContext`/`FullDeviceContext` | `[TUT]` |
+| `foreach (object o in cadView.SelectionSet)` / `.Count` | **Перебор текущего выделения** (`GetEnumerator`): одиночная вставка → команда, иначе выбор кликом | `[DECOMP]` + BlockEditor |
 
 ## Грипы редактирования
 

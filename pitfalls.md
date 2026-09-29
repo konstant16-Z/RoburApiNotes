@@ -166,3 +166,50 @@ RailModelImporter M4 (2026-09-11):
 - Ошибка не проявляется на этапе импорта — только при открытии окна таблицы в Robur.
   Диагностический признак в логе импорта: `вираж: узел[1] ... Owner=…RailAlignment`
   вместо `…VirageTable`.
+
+## 9. `PropertyGrid` — `null` в коллекции = NRE на `Object.GetType()`
+
+`[DECOMP]` `Topomatic.ComponentModel.dll` (16.0.62.12, снимок
+`Tools/Decomp/Topomatic.ComponentModel.PropertyExplorer.cs`),
+`[DECOMP]` `Topomatic.Controls.dll` (снимок
+`Tools/Decomp/Topomatic.Controls/Topomatic.Controls.ObjectInspection.PropertyGrid/`),
+`[RUNTIME]` стектрейс из Robur 16.0.62.x. Подробно — `propertygrid.md`.
+
+Симптом (падает на перерисовке, не на вызове `SelectObjects`):
+
+```
+System.NullReferenceException
+   в System.Object.GetType()
+   в Topomatic.ComponentModel.PropertyExplorer.smethod_10(IList, Type&)
+   в Topomatic.ComponentModel.PropertyExplorer.smethod_0(IEnumerable, Boolean)
+   в Topomatic.ComponentModel.PropertyExplorer.GetProperties(IEnumerable)
+   в ...PropertyGridHeader..ctor(IEnumerable)
+   в ...PropertyGrid.OnPaint(PaintEventArgs)
+```
+
+Причина — цикл определения общего типа **без проверки на null**:
+
+```csharp
+private static void smethod_10(IList items, out Type commonType)   // снимок, ~строка 737
+{
+    for (int i = 0; i < items.Count; i++)
+    {
+        Type type = items[i].GetType();   // ← NRE, если items[i] == null
+        ...
+    }
+}
+```
+
+- Проверяются **все** элементы, не только первый: достаточно одного `null` в любой
+  позиции (в том числе в конце списка). Пустая коллекция и `null`-коллекция
+  безопасны — падает только непустая с `null`-элементом.
+- Второй путь того же NRE: если коллекция пустая, но реализует `IActivator`
+  (`CanCreateInstance`), `PropertyGridHeader..ctor` вызывает `CreateInstance()` и
+  передаёт результат в `GetProperties(new object[1]{ result })` — возврат `null`
+  из `CreateInstance` даёт тот же стектрейс.
+- Данные для грида Robur берёт из обёрток (wrapper). Типичные источники `null`:
+  не созданный `IActivator`-объект, `null`-обёртка в `IList`, узел дерева с
+  `Model == null` (тот же класс ловушки, что в `model-editor.md`).
+- Обход на стороне вызова: фильтровать `null` перед `SelectObjects`
+  (`items.Where(i => i != null).ToList()`), проверять `CanCreateInstance`/`CreateInstance`
+  на `null`, не отдавать в грид списки с незаполненными элементами.

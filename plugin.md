@@ -53,6 +53,22 @@ protected override bool ValidateWindow(string cmd, IDocumentWindow window)
 `Consts.PlanWindow` (план), `Consts.ProfileWindow` (профиль), `Consts.CrossWindow` (поперечники);
 иначе — текущее окно. `[TUT]`
 
+## Диалоги с выбором (Да/Нет/Отмена)
+
+`MessageDlg.Show(msg, MessageBoxButtons, MessageBoxIcon)` возвращает
+`System.Windows.Forms.DialogResult` — «дождаться решения» перед продолжением
+(например, подтверждение применения правок по закрытию окна). Сигнатуры — метаданные
+SDK 16.0.62.x. `[DECOMP]`
+
+```csharp
+var r = MessageDlg.Show("Применить изменения блока?", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+if (r == DialogResult.Yes)   { /* применить */ }
+else if (r == DialogResult.Cancel) { /* отмена закрытия окна */ }
+```
+
+Системные диалоги (`SaveFileDialog`/`FolderBrowserDialog`) — обычный WinForms,
+доступен из UI-потока команды (STA). `[CODE]`
+
 ## Правила кода (сквозные)
 
 - Сообщения пользователю по-русски, `MessageDlg.Show(...)`, не `MessageBox`.

@@ -193,6 +193,11 @@ double EndSta, bool FromEdge, TrayCollection)`; свойства соответ�
 `SleepersDistribution` (`SleepersDistributionSection{Station, SleepersCount}`),
 `BallastDepth` (`BallastDepthSection{Station, BallastDepth}`).
 
+В `.railx` ветвь `Alignment` хранит их как `ProjectPermanentWay`/`ExistPermanentWay`
+с узлами `RailsTable`/`FasteningsTable`/`SleepersTable` (строка = `{Station, <объект>}`,
+у объекта `Guid`/`Model`/`Type`/`Name` + `Properties[]{tag,name,value,units}`)
+и хвостом `LastRule`. Подтверждено на реальном файле — `railx.md`.
+
 ### Старая модель (Robur 16.0.50) — поучастковая
 
 - `PermanentWay` = список `PermanentWaySection{Station, EndStation, Rail, Sleeper,

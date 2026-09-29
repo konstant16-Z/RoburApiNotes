@@ -340,6 +340,48 @@ foreach (var pair in project.GetOpenedModels())                      // KVP<IPro
 в JSON не пишет, импортёр восстанавливает только геометрию (симметрия; без Links
 резолвер геометрию не пересчитывает — это константный кэш).
 
+#### ModelUID — проставляется автоматически Robur'ом, не GUID `[DECOMP]`
+
+`ModelUID` — **не** идентификатор самой границы и **не** свежий `Guid`. Это
+project-level идентификатор модели-оси, по которому привязка ищет трассу при
+открытии railx. Цепочка (снимки `Tools/Decomp/`):
+
+```
+BorderlineLinkFactory.Create(object)                 Topomatic.Borderline.Controller.dll
+   └─ case Alignment:
+        IProjectModel pm   = PluginCoreOps.FindModel(alignment);   // модель в дереве проекта
+        var sc            = pm.Model as StateControllerObject
+                            ?? pm.LockRead() as StateControllerObject;   // ← нужен LockRead!
+        IModelFinder mf   = sc.ModelFinder;
+        string modelUid    = mf.FindModelUid(sc);
+        var link = new AlignmentBorderlineLink { ModelUid = modelUid };
+```
+
+`ModelFinder.FindModelUid(object)` =
+`PluginCoreOps.FindModel(model)?.Project?.GetModelId(pm.Uri)` — т.е. **model id из
+`ModelProject`**, выдаваемый при добавлении модели в дерево проекта
+(`Topomatic.ApplicationPlatform.ServiceClasses.ModelFinder`). Значение одинаково
+для всех привязок к одной и той же оси.
+
+Формат контейнера `.railx` и разбор `Links`/`LinkData` в реальном файле
+(`53.railx` vs `531.railx`) — `railx.md`.
+
+`ObjectBorderlineLink.ModelUid` — `{ get; set; }` через `BeginUpdate()/EndUpdate()`,
+сериализуется как обычная строка: `OnSaveToStg` → `dataNode.AddString(<имя>, …)`,
+`OnLoadFromStg` → `dataNode.GetString(<имя>, "")` (пустая строка при отсутствии).
+`OnAssign` копирует поле (шаблон/клонирование), `Invalidate()` — нет.
+
+Читается в `AlignmentBorderlineLink.GetLinkedObject()`:
+`modelFinder.FindModelFromUid(ModelUid) as IProjectModel` — не нашлось → `null`,
+привязка «висячая», геометрия берётся из сохранённого кэша. **Поэтому в
+`531.railx` (Links нет) и в обоих экспортёрах ModelUID отсутствует легитимно**,
+и дописывать его вручную при импорте бессмысленно: model id выдаётся проектом
+при импорте модели в дерево, а не хранится в railx как константа.
+
+Полезно: `Topomatic.Cad.View.Design.ModelUidProvider` + `ModelUidAttribute`
+(`SelfUidAliase`, `HideSelf`) — инспектор свойств для полей вида ModelUid; тот же
+`IModelFinder` (`ModelTypes`, `SelfUidAliase` для «ссылки на самого себя»).
+
 #### Запись геометрии — приватные поля-кэши `BorderlineGeometryData` `[DECOMP]`
 
 `VisibleBoundaries` — **производная геометрия**: getter при пустом backing вызывает
@@ -399,6 +441,80 @@ entities.Add(ent)
 Перед добавлением импортёр удаляет существующие `DwgBorderline` из
 `ActiveSpace.Entities` (замена блока, как `Clear()+Add()` у legacy-линий) —
 иначе повторный импорт дублирует зоны.
+
+### Запись ссылки `AlignmentBorderlineLink` (write-API) `[DECOMP]`
+
+Ссылка на трассу — единственный источник **производной** геометрии
+(`VisibleBoundaries` резолвится из неё). Без неё сущность неполна: PropertyGrid
+падает (см. ниже), и при любом `Invalidate()` границы исчезают.
+
+Снимки: `Tools/Decomp/Topomatic.Borderline.Controller.Links.AlignmentBorderlineLink.cs`,
+`…Controller.Links.BorderlineLinkFactory.cs`,
+`…Borderline.Links.ObjectBorderlineLink.cs`, `…Borderline.Links.BorderlineLinks.cs`.
+
+Класс: `Topomatic.Borderline.Controller.Links.AlignmentBorderlineLink`
+(`LINK_ALIAS` = `"AlignmentBorderlineLink"`), наследник
+`Topomatic.Borderline.Links.ObjectBorderlineLink`. **public** параметрический
+без аргументов `.ctor()`.
+
+| Член | Тип | Примечание |
+|---|---|---|
+| `ModelUid` | `string` | **наследуемый**, public get/set; ключ привязки к модели (см. цепочку ниже) |
+| `LOffset` / `ROffset` / `VOffset` | `double` | get/set; смещения слева/справа/по вертикали |
+| `ByCrs` | `bool` | привязка к CRS, а не к пикетажу |
+| `WholeLength` | `bool` | на всю длину трассы |
+| `FromSta` / `ToSta` | `double` | границы участка (get) |
+| `OsnDesignMode`, `OsnOptimize`, `FromTunnelAxis`, `IsMetro` | `bool` | режимы оптимизации OSN |
+| `OsnCurveSegmentFactor`, `OsnOptimizeOffset` | `double` | параметры OSN |
+| `IsEditable` | `bool` | get (override) — false у ссылки на ось |
+| `GetLinkedObject()` | `object` | резолвит ось; `CachedLinkedObject` кэширует и сбрасывается в `Invalidate()` |
+| `GetPolyline()` | `Polyline2DCurve` | осевая линия ссылки |
+
+`OnSaveToStg`/`OnLoadFromStg` ссылки пишут ровно 10 полей: `ByCrs`,
+`WholeLength`, `OsnDesignMode`, `OsnOptimize`, `FromTunnelAxis`,
+`OsnCurveSegmentFactor`, `OsnOptimizeOffset`, `LOffset`, `ROffset`, `VOffset`.
+UID модели сериализуется **основанием** — `ObjectBorderlineLink.OnSaveToStg`
+(`AddString`, ключ 2586 / чтение 2606). Отсюда важность UID: без него ось не
+находится после `LoadFromStg`.
+
+**Рецепт создания** (`BorderlineLinkFactory.smethod_2(Alignment)`, канон Robur):
+
+```csharp
+var findModel = PluginCoreOps.FindModel(alignment);
+var sco = findModel.Model as StateControllerObject ?? findModel.LockRead() as StateControllerObject;
+if (sco == null) return null;                       // ось вне модели — ссылку не создать
+string modelUid = sco.ModelFinder.FindModelUid(sco);
+var link = new AlignmentBorderlineLink { ModelUid = modelUid };
+((BorderlineLinks)borderline.Links).Add(link);      // Links — get-only, но Add/BeginUpdate есть
+```
+
+`BorderlineLinks` (`Topomatic.Borderline.Links.BorderlineLinks`) —
+`IList<BorderlineLink>` с **публичным** `Add`/`Insert`/`RemoveAt`/`Clear`,
+`IsReadOnly => false`, плюс `BeginUpdate()`/`EndUpdate()`, `Assign(BorderlineLinks)`,
+`SaveToStg`/`LoadFromStg`.
+
+### NRE в PropertyGrid при выборе межевания без ссылки `[DECOMP]`
+
+Симптом: ошибка в инспекторе свойств при выделении импортированной зоны.
+
+`BorderlineLinksWrapper` (`Topomatic.Borderline.Controller.Wrappers`) отдаёт
+PropertyGrid-обёртку коллекции ссылок, и в ней
+`CanCreateInstance => true` при `CreateInstance() => null`
+(снимок `Tools/Decomp/Topomatic.Borderline.Controller.Wrappers.BorderlineLinksWrapper.cs`).
+Это в точности ловушка из `ApiNotes/propertygrid.md`: `PropertyGrid.SelectObjects`
+сохраняет коллекцию и лишь помечает её как требующую перерисовки, а
+`PropertyExplorer` строит колонки позже, на paint, и вызывает `GetType()` на
+**каждом** элементе без проверки на `null`.
+
+У сущности, созданной в UI Robur, ссылка есть → `CreateInstance` возвращает
+обёртку. У сущности, собранной нашим импортёром без ссылки, `Links` пуст →
+`null` попадает в коллекцию → `NullReferenceException` в
+`System.Object.GetType()` при `PropertyGrid.OnPaint`.
+
+**Вывод:** расхождение «экспорт без Links ↔ импорт без Links» не сводится к
+неполноте JSON — именно оно и даёт падение. Ссылка обязана
+восстанавливаться при импорте (рецепт выше), тогда PropertyGrid получает
+непустую коллекцию.
 
 ### Stg-совместимость (данные старого формата)
 

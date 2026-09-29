@@ -61,6 +61,7 @@
 | `road.md` | Автодорога (`Topomatic.Alg.Road.dll`): `RoadAlignment`, план/поперечники, параметры, километраж, станционирование, интенсивности (`Intensities` — дорожная write-специфика) |
 | `surface.md` | Поверхности (ЦММ): чтение, правка, создание с нуля |
 | `dwg.md` | Чертёж: сущности, листы, CadColor, матрица вставки, блоки, расширенный словарь, слои, штриховки, запись DXF/DWG через ACadSharp |
+| `dwg-controller.md` | Команды черчения/слоёв/размеров (`Topomatic.Dwg.Controller.dll`): `DwgControllerPluginHost`, 6 внутренних модулей (обе версии: сдвиг нумерации `Slayed`↔`Slayed_16_50` +2), внешний контракт = строки `[cmd]`, `ClassN`-ловушки |
 | `culverts.md` | Водопропускные трубы: доступ к модели, параметры, спецификации, таблицы, идентификаторы `SheetTableNames` |
 | `solids.md` | Твёрдые тела и Brep: `Shell`/`Face`/`Brep.Tools`, создание, логические операции, трансформации, сечение |
 | `scripting.md` | Скрипты: IronPython (движок, Python-плагины, мост PyBridge, interop) |
@@ -69,7 +70,9 @@
 | `turnouts.md` | Стрелочные переводы / путевое развитие: `Gridiron`, `SimpleTurnout`, `BufferStop`, `GridironElement`, enum'ы, JSON-формат |
 | `landallotment.md` | Землеустройство/межевание: `LandAllotment`, линии (Design/Existent/Temp/Crs), узлы, стили, слои, расширение доступа `GetLandAllotment`; **новый механизм 16.0.62** — модуль `Topomatic.Borderline` (`DwgBorderline` в `Drawing.ActiveSpace`, `BorderlineGeometryData`/`NodeOffsets`, канонический путь по `CoreModule`) |
 | `cadastre.md` | Кадастр: модель `Topomatic.Cadastre` (выписки Росреестра XML, участки/границы/ЗОУИТ/права, контуры, `CadastralNumber`, опечатка `YearCommisioning`, своп осей `ToVector2D`) и команды `Topomatic.Cadastre.Controller` (82 `[cmd]`) |
-| `pitfalls.md` | Сквозные ловушки API (структуры, undo, лицензии, null-модели, Owner таблиц M4) |
+| `railx.md` | Формат `.railx`: SFCX-контейнер с одним BSTG-документом (геометрия SFCX пуста), ветви `Situation`/`Alignment`, `Layers`↔`LayersLinks` (`LayerId`=`Handle`), `Seeds`/`HandleSeed`, `PlanVertexes[].ID` как сквозной счётчик, эталонное сравнение `53.railx`↔`531.railx`, permanent-way таблицы, `Model3DElementContext`, пропавший `Links`/`ModelUID` |
+| `propertygrid.md` | Инспектор свойств `Topomatic.Controls.ObjectInspection.PropertyGrid`: `SelectObjects`, цепочка Paint→`PropertyExplorer`, NRE на `Object.GetType()` при `null` в коллекции, публичная поверхность грида |
+| `pitfalls.md` | Сквозные ловушки API (структуры, undo, лицензии, null-модели, Owner таблиц M4, null в PropertyGrid) |
 
 ## Как пополнять
 
