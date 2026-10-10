@@ -13,6 +13,25 @@
 | `public override void Initialize(PluginFactory factory) { base.Initialize(factory); }` | Точка инициализации; здесь регистрируют типы моделей, подписки | `[TUT]` |
 | `PluginHostInitializator` — хост, обязан быть `public` | `public class ModulePluginHost : PluginHostInitializator { protected override Type[] GetTypes() => new Type[] { typeof(Module) }; }` | `[TUT]` |
 
+⚠️ **Число параметров метода = число аргументов в тексте `cmd`.** Robur разбирает
+`cmd` и передаёт столько аргументов, сколько в нём литералов в кавычках и
+подстановок `%N`. Голый идентификатор без аргументов — ноль параметров:
+
+```json
+"id_x": { "cmd": "my_launcher" }              → public void MyLauncher()          // без параметров
+"id_y": { "cmd": "rmepy_run \"rail.props\"" } → public void Run(string prms)     // один параметр
+```
+
+Расхождение даёт `TargetParameterCountException` **при нажатии**, и выглядит это
+как «кнопка сломана», хотя объявлена верно. Штатная проверка формы `cmd` такое не
+ловит: `rmepy_launcher` — корректный идентификатор, ровно как **2531** действие в
+манифестах самого Robur (`Development/Out/Bin/*.plugin`: `cmd` без кавычек и `%N`).
+
+Проверено в Robur: метод с `string prms` под действием с `cmd` без аргументов
+падал `TargetParameterCountException`; после замены на метод без параметров
+работает. Ловится скриптом сверки `[cmd]` и `actions` — в NewPluginSystem это
+`tests/cmd_args_test.py`.
+
 ## Мост к хост-приложению
 
 | API | Назначение | Статус |
@@ -43,6 +62,31 @@
 
 Известные баги upstream `[TUT]` (не повторять): `tutorial1.plugin` — ключ `"tutroial1"`;
 `tutorial9.plugin` — ключ `"tutorial8"`; в PascalCase-проектах не хватает `<Private>False</Private>`.
+
+### Флаги видимости: 0 — доступен, 1 — серый, 2 — скрыт
+
+`flags` у действий и у групп ленты принимают эти три значения (`0` — доступен,
+`1` — серый, `2` — скрыт; `core.plugin`). Для пункта, который **неприменим** в
+текущем состоянии, нужен именно `2`: серым он выглядел бы как «есть, но не сейчас».
+
+Признак «активна модель Rail/Road» берётся из макросов самого Robur — переменные
+`rail` и `road` определены в его `ribbon.plugin` (`Development/Out/Bin/ribbon.plugin`,
+секция `variables`):
+
+```text
+rail = $(if,$(configuration,rail),$(if,$(readonly_alg_flag),1,
+        $(if,$(strncasecmp,$(get_active_model_type),rail),0,1)),1)
+road = $(if,$(configuration,road),$(if,$(readonly_alg_flag),1,
+        $(if,$(strncasecmp,$(get_active_model_type),road),0,1)),1)
+```
+
+То есть признак — это ровно `$(strncasecmp,$(get_active_model_type),rail)`.
+Практика: подставлять выражение прямо в `flags` своего действия, а не через
+свою переменную в секции `variables` — иначе результат зависит от того, объявлена
+ли переменная в **чужом** манифесте, и `flags` тихо не сработает.
+
+Проверено на group's действии в NewPluginSystem: восемь legacy-команд (IronPython,
+работают только с Rail) скрыты на авто- и площадках.
 
 ## Контекстные меню (`contexts`)
 

@@ -213,3 +213,61 @@ private static void smethod_10(IList items, out Type commonType)   // снимо
 - Обход на стороне вызова: фильтровать `null` перед `SelectObjects`
   (`items.Where(i => i != null).ToList()`), проверять `CanCreateInstance`/`CreateInstance`
   на `null`, не отдавать в грид списки с незаполненными элементами.
+## 10. `Exception.ToString()` на исключениях Robur **бросает исключение**
+
+Обфусцированные сборки Robur идут под .NET Reactor, и `ToString()` на типах
+собой не является: `System.Object.ToString()` недоступен через атрибут, вызов
+падает `AttributeError`/аналогом. Проверено на `Plugin executing exception`:
+логгер, который писал `ex.ToString()`, **выбрасывал исключение вместо записи**,
+пользователь видел «Plugin executing exception» без причины, а лог обрывался.
+
+Читать текст исключения надо **по частям**, и каждая часть обязана падать
+независимо:
+
+```csharp
+parts.Add("Message: " + ex.Message);        // свойство, а не ToString()
+if (ex.InnerException != null) parts.Add("Inner: " + ex.InnerException.Message);
+try { parts.Add("Stack: " + ex.StackTrace); } catch { }   // у Robur тоже недоступен
+```
+
+Общее правило шире логгера: **на обфусцированных типах Robur не работает
+`ToString()` через атрибут** — сначала `getattr(obj, "ToString", None)`, затем
+`str(obj)`, который для CLR-объекта отдаёт полное имя типа. Всё обходное
+отражение, которое зовёт `ToString()`, падает целиком.
+
+## 11. Лента, палитра и строка меню статичны; динамично только контекстное меню
+
+Состав ленты и строки меню задаётся `.plugin`-манифестом **при старте Robur**:
+`PluginManager.GenerateMenu(uid, registers, root)` разбирает плоский список id из
+секций `menubars`/`ribbon`, и нашего кода в этом процессе нет. Добавление пункта
+в рантайме невозможно — публичного API нет (`IToolbarCreator`/`IPanelCreator` в
+корпусе отсутствуют, поиск по членам с `Palette` даёт только WinForms-шум).
+
+Динамически строится **только** контекстное меню окна: Robur поднимает
+`CadView.CreateMenu` (`HandleCreateMenu(CreateMenuEventArgs)`), а `e.Root` —
+дерево `MenuAction` с `Add`/`Insert`/`AddSeparator`/`FillMenu`. Отсюда рабочая
+схема: список команд наполняется при каждом правом клике, новый `.py` виден сразу.
+`MenuAction.Add(caption, handler, tag, enabled, visible)` задаёт видимость и
+доступность в рантайме, без макросов манифеста.
+
+Проверено на работающих модулях того же автора (QuickCommands 1.1.2, ModelDesk
+1.2.0 — `.tpm` это zip, манифесты внутри): их схема совпадает с нами.
+
+## 12. Разрядность: сборки Robur — AnyCPU, а не x86/32BITREQUIRED
+
+Проверено по PE-заголовкам и CLR-флагам (`CorFlags`) `Development/Out/Bin`:
+
+```text
+Robur.exe                  machine=x86  PE32  corflags=9  = ILONLY + STRONGNAMESIGNED
+Topomatic.Alg.dll          machine=x86  PE32  corflags=9  = ILONLY + STRONGNAMESIGNED
+```
+
+`32BITREQUIRED` **нет ни в одной сборке** — это AnyCPU: заголовок собран под x86,
+но 64-битный хост грузит их как 64-битные. Фактически процесс 64-битный
+(`IntPtr.Size == 8`).
+
+Практический вывод: **не выбирать разрядность внешней библиотеки по PE-заголовку
+`Robur.exe`.** В NewPluginSystem так был выбран 64-битный CPython — и это
+единственный рабочий вариант; заголовок вводил в омысел, будто нужен 32-битный.
+
+Проверка разрядности процесса — только своя: `IntPtr.Size == 8`.

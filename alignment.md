@@ -81,6 +81,34 @@ using (var r = ActiveAlignmentReciver<Alignment>.CreateReciver(false))
 ```
 `[TUT]` (см. tutorial3). `CreateReciver(true)` — регистрировать изменение.
 
+## Создание трассы и модели — что можно, а что нет
+
+Проверено по метаданным `Development/Out/Bin` (api-base), 16.0.62.12.
+
+| API | Доступность | Следствие |
+|---|---|---|
+| `AlignmentModel.CreateAlignment()` | `protected abstract` | снаружи не вызвать: `InvokeMethod` по имени его не достаёт, нужен `BindingFlags.NonPublic` |
+| `RailModel.CreateAlignment()` / `RoadModel.CreateAlignment()` | `protected` | то же — вызывать на объекте модели не-reflection нельзя |
+| `AlignmentModel.Alignment` | **только геттер** | метода «добавить трассу» у модели нет |
+| `AlignmentModel.Plan` | **только геттер** | `SetPlan` **не существует** — «создать трассу и подставить ей план» через API невозможно |
+| `ModelProject.CreateModel(URI, string)` | `internal` | URI модели пришлось бы угадывать; не выдумывать |
+| `ModelProject.FindModelType(URI)` / `OpenModel` / `IsModelOpened` / `GetModelIds` | `public` | годятся для чтения состояния |
+
+**Как всё же создать трассу.** Единственный подтверждённый путь — вызвать
+`CreateAlignment()` у модели через `BindingFlags.NonPublic | Instance`. Метод
+`protected abstract` в базе и `protected` в конкретных `RailModel`/`RoadModel`
+(`Topomatic.Alg.Rail.Core.RailModel`, `Topomatic.Alg.Road.Core.RoadModel` — оба
+`public`, оба в `Bin`).
+
+**Чего делать нельзя:** не выводить «добавление трассы в модель» из того, что
+`CreateAlignment` возвращает `Alignment`. Возвращаемое значение ничего не
+говорит о том, зарегистрирована ли трасса в модели, — это проверяется только
+контрольным чтением, и подменять проверку догадкой нельзя.
+
+Путь получения модели без угадывания URI: `ApplicationHost.Current.ActiveDocument`
+(или ресивер) → `IProjectModel` → `.Model` (объект модели) и `.ModelType`
+(строка, например `"Rail"`). У `IProjectModel` есть `Model`, `ModelType`, `Uri`.
+
 ## План (PlanLine)
 
 | API | Назначение | Статус |
